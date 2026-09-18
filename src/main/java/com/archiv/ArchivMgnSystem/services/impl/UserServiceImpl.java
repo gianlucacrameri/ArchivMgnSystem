@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,16 +35,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Response registerUser(RegisterRequest registerRequest) {
-        UserRole role = UserRole.MANAGER;
-        if (registerRequest.getRole() != null) {
-            role = registerRequest.getRole();
-        }
+        // Selbstregistrierung erhält immer die Rolle USER. ADMIN/MANAGER-Rechte
+        // werden ausschliesslich von einem bestehenden Admin vergeben (siehe updateUser).
         User userToSave = User.builder()
                 .username(registerRequest.getName())
                 .email(registerRequest.getEmail())
                 .password(passwordEncoder.encode(registerRequest.getPassword()))
                 .phoneNumber(registerRequest.getPhoneNumber())
-                .role(role)
+                .role(UserRole.USER)
                 .build();
 
         userRepository.save(userToSave);
@@ -119,10 +118,23 @@ public class UserServiceImpl implements UserService {
 
         User existingUser = userRepository.findById(id).orElseThrow(() -> new NotFoundException("User Not Found"));
 
+        User currentUser = getCurrentLoggedInUser();
+        boolean isAdmin = currentUser.getRole() == UserRole.ADMIN;
+
+        if (!isAdmin && !currentUser.getId().equals(id)) {
+            throw new AccessDeniedException("You are not allowed to update this user");
+        }
+
+        if (userDTO.getRole() != null) {
+            if (!isAdmin) {
+                throw new AccessDeniedException("Only admins can change a user's role");
+            }
+            existingUser.setRole(userDTO.getRole());
+        }
+
         if (userDTO.getEmail() != null) existingUser.setEmail(userDTO.getEmail());
         if (userDTO.getPhoneNumber() != null) existingUser.setPhoneNumber(userDTO.getPhoneNumber());
         if (userDTO.getUsername() != null) existingUser.setUsername(userDTO.getUsername());
-        if (userDTO.getRole() != null) existingUser.setRole(userDTO.getRole());
 
         if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
             existingUser.setPassword(passwordEncoder.encode(userDTO.getPassword()));

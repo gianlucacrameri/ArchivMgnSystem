@@ -1,6 +1,7 @@
 # ArchivMgnSystem
 
 Spring-Boot-Backend für das Materialarchiv eines Sportvereins.
+Das zugehörige Frontend (React, mobile-first) liegt in [`frontend/`](frontend/README.md).
 
 ## Konfiguration
 

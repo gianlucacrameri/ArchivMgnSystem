@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,6 +23,7 @@ public class ItemController {
     private final ItemService itemService;
 
     @PostMapping("/add")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<Response> saveProduct(
             @RequestParam("imageFile")MultipartFile imageFile,
             @RequestParam("name")String name,
@@ -44,6 +46,7 @@ public class ItemController {
     }
 
     @PutMapping("/update")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<Response> updateItem(
             @RequestParam(value = "imageFile", required = false)MultipartFile imageFile,
             @RequestParam(value = "name", required = false)String name,
@@ -100,6 +103,7 @@ public class ItemController {
     }
 
     @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<Response> deleteItem(@PathVariable Long id){
         return ResponseEntity.ok(itemService.deleteItem(id));
     }

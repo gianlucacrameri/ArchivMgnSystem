@@ -7,6 +7,7 @@ import com.archiv.ArchivMgnSystem.services.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -51,6 +52,7 @@ public class TransactionController {
     }
 
     @PutMapping("/{transactionId}")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<Response> updateTransactionStatus(
             @PathVariable Long transactionId,
             @RequestBody TransactionStatus status) {

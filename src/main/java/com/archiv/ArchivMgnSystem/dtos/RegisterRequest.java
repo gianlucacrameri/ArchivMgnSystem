@@ -1,7 +1,6 @@
 package com.archiv.ArchivMgnSystem.dtos;
 
 
-import com.archiv.ArchivMgnSystem.enums.UserRole;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,5 +23,6 @@ public class RegisterRequest {
     @NotBlank(message = "Phonenumber is required")
     private String phoneNumber;
 
-    private UserRole role;
+    // Die Rolle wird bewusst nicht vom Client übernommen (siehe UserServiceImpl.registerUser) -
+    // Selbstregistrierung darf niemals ADMIN/MANAGER vergeben können.
 }

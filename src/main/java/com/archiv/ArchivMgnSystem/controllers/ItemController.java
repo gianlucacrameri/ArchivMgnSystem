@@ -4,10 +4,14 @@ import com.archiv.ArchivMgnSystem.dtos.ItemDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.services.ItemService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 
 @RestController
@@ -63,8 +67,31 @@ public class ItemController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Response> getAllItems(){
-        return ResponseEntity.ok(itemService.getAllItems());
+    public ResponseEntity<Response> getAllItems(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) Long categoryId) {
+        return ResponseEntity.ok(itemService.getAllItems(page, size, filter, categoryId));
+    }
+
+    @GetMapping("/images/{filename:.+}")
+    public ResponseEntity<Resource> getImage(@PathVariable String filename) {
+        Resource resource = itemService.loadImage(filename);
+
+        MediaType contentType = MediaType.APPLICATION_OCTET_STREAM;
+        try {
+            String probed = Files.probeContentType(resource.getFile().toPath());
+            if (probed != null) {
+                contentType = MediaType.parseMediaType(probed);
+            }
+        } catch (IOException ignored) {
+            // fall back to octet-stream
+        }
+
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .body(resource);
     }
 
     @GetMapping("/{id}")
@@ -75,10 +102,5 @@ public class ItemController {
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<Response> deleteItem(@PathVariable Long id){
         return ResponseEntity.ok(itemService.deleteItem(id));
-    }
-
-    @GetMapping("/search")
-    public ResponseEntity<Response> searchItem(@RequestParam String input){
-        return ResponseEntity.ok(itemService.searchItem(input));
     }
 }

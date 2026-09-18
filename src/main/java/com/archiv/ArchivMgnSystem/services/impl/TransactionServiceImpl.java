@@ -49,14 +49,10 @@ public class TransactionServiceImpl implements TransactionService {
 
         User user = userService.getCurrentLoggedInUser();
 
-        //update stockQuantity and re-save
-        item.setStockQuantity(item.getStockQuantity() + quantity);
-        itemRepository.save(item);
-
-        //create a transaction
+        //create a pending request; stock is only updated once an admin approves it
         Transaction transaction = Transaction.builder()
                 .transactionType(TransactionType.ADD)
-                .transactionStatus(TransactionStatus.COMPLETED)
+                .transactionStatus(TransactionStatus.PENDING)
                 .item(item)
                 .user(user)
                 .totalItems(quantity)
@@ -67,7 +63,7 @@ public class TransactionServiceImpl implements TransactionService {
         transactionRepository.save(transaction);
         return Response.builder()
                 .status(200)
-                .message("Transaction Made successfully")
+                .message("Bestandsänderung beantragt, wartet auf Freigabe durch einen Admin")
                 .build();
 
     }
@@ -80,16 +76,16 @@ public class TransactionServiceImpl implements TransactionService {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Item Not Found"));
 
+        if (quantity > item.getStockQuantity()) {
+            throw new IllegalArgumentException("Requested quantity exceeds current stock");
+        }
+
         User user = userService.getCurrentLoggedInUser();
 
-        //update stockQuantity and re-save
-        item.setStockQuantity(item.getStockQuantity() - quantity);
-        itemRepository.save(item);
-
-        //create a transaction
+        //create a pending request; stock is only updated once an admin approves it
         Transaction transaction = Transaction.builder()
                 .transactionType(TransactionType.USE)
-                .transactionStatus(TransactionStatus.COMPLETED)
+                .transactionStatus(TransactionStatus.PENDING)
                 .item(item)
                 .user(user)
                 .totalItems(quantity)
@@ -100,7 +96,7 @@ public class TransactionServiceImpl implements TransactionService {
         transactionRepository.save(transaction);
         return Response.builder()
                 .status(200)
-                .message("Product Use Successfully Made")
+                .message("Bestandsänderung beantragt, wartet auf Freigabe durch einen Admin")
                 .build();
     }
 
@@ -172,6 +168,26 @@ public class TransactionServiceImpl implements TransactionService {
     public Response updateTransactionStatus(Long transactionId, TransactionStatus status) {
         Transaction existingTransaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
+
+        if (existingTransaction.getTransactionStatus() != TransactionStatus.PENDING) {
+            throw new IllegalStateException("This request was already processed");
+        }
+
+        if (status == TransactionStatus.COMPLETED) {
+            Item item = existingTransaction.getItem();
+            int delta = existingTransaction.getTransactionType() == TransactionType.ADD
+                    ? existingTransaction.getTotalItems()
+                    : -existingTransaction.getTotalItems();
+
+            int newQuantity = item.getStockQuantity() + delta;
+            if (newQuantity < 0) {
+                throw new IllegalArgumentException("Not enough stock available to approve this request");
+            }
+            item.setStockQuantity(newQuantity);
+            itemRepository.save(item);
+        } else if (status != TransactionStatus.CANCELED) {
+            throw new IllegalArgumentException("Status must be either COMPLETED or CANCELED");
+        }
 
         existingTransaction.setTransactionStatus(status);
         existingTransaction.setUpdatedAt(LocalDateTime.now());

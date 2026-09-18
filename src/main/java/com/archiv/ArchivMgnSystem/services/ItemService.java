@@ -2,6 +2,7 @@ package com.archiv.ArchivMgnSystem.services;
 
 import com.archiv.ArchivMgnSystem.dtos.ItemDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface ItemService {
@@ -9,12 +10,12 @@ public interface ItemService {
 
     Response updateItem(ItemDTO itemDTO, MultipartFile imageFile);
 
-    Response getAllItems();
+    Response getAllItems(int page, int size, String filter, Long categoryId);
 
     Response getItemsById(Long id);
 
     Response deleteItem(Long id);
 
-    Response searchItem(String input);
+    Resource loadImage(String filename);
 
 }

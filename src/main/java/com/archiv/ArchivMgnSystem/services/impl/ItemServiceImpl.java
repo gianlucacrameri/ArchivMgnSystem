@@ -9,16 +9,28 @@ import com.archiv.ArchivMgnSystem.models.Item;
 import com.archiv.ArchivMgnSystem.repositories.CategoryRepository;
 import com.archiv.ArchivMgnSystem.repositories.ItemRepository;
 import com.archiv.ArchivMgnSystem.services.ItemService;
+import com.archiv.ArchivMgnSystem.specification.ItemFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -32,8 +44,10 @@ public class ItemServiceImpl implements ItemService {
     private final ModelMapper modelMapper;
     private final CategoryRepository categoryRepository;
 
-    private static final String IMAGE_DIRECTORY = System.getProperty("user.dir") + "/item-image";
+    @Value("${app.upload-dir:${user.dir}/uploads/items}")
+    private String uploadDir;
 
+    private static final long MAX_IMAGE_SIZE_BYTES = 10L * 1024 * 1024; // 10 MB
 
     @Override
     public Response saveItem(ItemDTO itemDTO, MultipartFile imageFile) {
@@ -96,10 +110,6 @@ public class ItemServiceImpl implements ItemService {
             existingItem.setPlace(itemDTO.getPlace());
         }
 
-        if (itemDTO.getName() != null && !itemDTO.getName().isBlank()) {
-            existingItem.setName(itemDTO.getName());
-        }
-
         if (itemDTO.getStockQuantity() != null && itemDTO.getStockQuantity() >= 0) {
             existingItem.setStockQuantity(itemDTO.getStockQuantity());
         }
@@ -114,17 +124,22 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public Response getAllItems() {
-        List<Item> itemList = itemRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
+    public Response getAllItems(int page, int size, String filter, Long categoryId) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
 
-        List<ItemDTO> itemDTOList = modelMapper.map(itemList, new TypeToken<List<ItemDTO>>()
+        Specification<Item> spec = ItemFilter.byFilter(filter).and(ItemFilter.byCategory(categoryId));
+
+        Page<Item> itemPage = itemRepository.findAll(spec, pageable);
+
+        List<ItemDTO> itemDTOList = modelMapper.map(itemPage.getContent(), new TypeToken<List<ItemDTO>>()
         {}.getType());
-
 
         return Response.builder()
                 .status(200)
                 .message("success")
                 .items(itemDTOList)
+                .totalElements(itemPage.getTotalElements())
+                .totalPages(itemPage.getTotalPages())
                 .build();
     }
 
@@ -154,47 +169,56 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public Response searchItem(String input) {
+    public Resource loadImage(String filename) {
+        try {
+            Path baseDir = Paths.get(uploadDir).normalize().toAbsolutePath();
+            Path filePath = baseDir.resolve(filename).normalize();
 
-        List<Item> items = itemRepository.findByNameContainingOrDescriptionContaining(input, input);
+            if (!filePath.startsWith(baseDir)) {
+                throw new IllegalArgumentException("Invalid file path");
+            }
 
-        if(items.isEmpty()) {
-            throw new NotFoundException("Item not found");
+            Resource resource = new UrlResource(filePath.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new NotFoundException("Image not found");
+            }
+            return resource;
+        } catch (MalformedURLException e) {
+            throw new NotFoundException("Image not found");
         }
-
-        List<ItemDTO> itemDTOList = modelMapper.map(items, new TypeToken<List<ItemDTO>>()
-        {}.getType());
-        return Response.builder()
-                .status(200)
-                .message("success")
-                .items(itemDTOList)
-                .build();
-
     }
 
     private String saveImage(MultipartFile imageFile) {
-        if (!imageFile.getContentType().startsWith("image/") || imageFile.getSize() > 1024 * 1024 * 1024) {
-            throw new IllegalArgumentException("Only image files under 1GB are allowed");
+        String contentType = imageFile.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Only image files are allowed");
         }
-        File directory = new File(IMAGE_DIRECTORY);
-        if (!directory.exists()) {
-            directory.mkdir();
-            log.info("directory was created");
+        if (imageFile.getSize() > MAX_IMAGE_SIZE_BYTES) {
+            throw new IllegalArgumentException("Image must not be larger than 10 MB");
         }
-        // generate unique file name for the imaage
-        String uniqueFileName = UUID.randomUUID() + "_" + imageFile.getOriginalFilename();
 
-        // get the absolute path
+        File directory = new File(uploadDir);
+        if (!directory.exists() && !directory.mkdirs()) {
+            throw new IllegalStateException("Could not create upload directory");
+        }
 
-        String imagePath = IMAGE_DIRECTORY + uniqueFileName;
+        String originalFilename = StringUtils.cleanPath(
+                imageFile.getOriginalFilename() != null ? imageFile.getOriginalFilename() : "");
+        String extension = "";
+        int dotIndex = originalFilename.lastIndexOf('.');
+        if (dotIndex >= 0) {
+            extension = originalFilename.substring(dotIndex);
+        }
+        String uniqueFileName = UUID.randomUUID() + extension;
+
+        File destinationFile = new File(directory, uniqueFileName);
 
         try {
-            File destinationFile = new File(imagePath);
-            imageFile.transferTo(destinationFile); //we are writing the image to this folder
+            imageFile.transferTo(destinationFile);
         } catch (IOException e) {
-            throw new IllegalArgumentException("Error saving image: " + e.getMessage());
+            throw new IllegalStateException("Error saving image: " + e.getMessage());
         }
 
-        return imagePath;
+        return "/api/items/images/" + uniqueFileName;
     }
 }

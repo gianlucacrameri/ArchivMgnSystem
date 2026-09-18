@@ -2,6 +2,7 @@ package com.archiv.ArchivMgnSystem.models;
 
 
 import com.archiv.ArchivMgnSystem.enums.UserRole;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -30,6 +31,7 @@ public class User {
     @NotBlank(message = "Name is required")
     private String username;
 
+    @JsonIgnore
     @NotBlank(message = "Password is required")
     private String password;
 

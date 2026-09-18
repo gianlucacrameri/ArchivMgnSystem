@@ -5,6 +5,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -20,7 +21,9 @@ public class JwtUtil {
 
     private static final long EXPIRATION_TIME_IN_MILLISEC = 1000L * 60L * 60L * 24L * 30L * 6L; // ablaufdatum (6 Monate)
     private SecretKey key;
-    private String secretJwtString = "archivGianni1234567891067archivGianni1234567891067";
+
+    @Value("${jwt.secret}")
+    private String secretJwtString;
 
     @PostConstruct
     private void init() {

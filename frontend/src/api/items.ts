@@ -75,8 +75,3 @@ export async function updateItem(input: {
 export async function deleteItem(id: number): Promise<void> {
   await apiSend("DELETE", `/api/items/delete/${id}`);
 }
-
-export async function fetchCategories(): Promise<{ id: number; name: string }[]> {
-  const res = await apiGet("/api/categories/all");
-  return res.categories ?? [];
-}

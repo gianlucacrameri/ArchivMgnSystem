@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CategoryDTO, ItemDTO } from "../types";
-import { fetchCategories, fetchItems } from "../api/items";
+import { fetchItems } from "../api/items";
+import { fetchCategories } from "../api/categories";
 import ItemCard from "../components/ItemCard";
 import ItemDetailModal from "../components/ItemDetailModal";
 import CreateItemModal from "../components/CreateItemModal";
+import CategoriesModal from "../components/CategoriesModal";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { ApiError } from "../api/client";
@@ -19,6 +21,7 @@ export default function ItemsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<ItemDTO | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,9 +49,14 @@ export default function ItemsPage() {
       <div className="page__header">
         <h1>Materialarchiv</h1>
         {isAdmin && (
-          <button type="button" className="btn btn--primary" onClick={() => setShowCreate(true)}>
-            + Neues Material
-          </button>
+          <div className="button-row">
+            <button type="button" className="btn btn--secondary" onClick={() => setShowCategories(true)}>
+              Kategorien
+            </button>
+            <button type="button" className="btn btn--primary" onClick={() => setShowCreate(true)}>
+              + Neues Material
+            </button>
+          </div>
         )}
       </div>
 
@@ -101,6 +109,14 @@ export default function ItemsPage() {
             setShowCreate(false);
             load();
           }}
+        />
+      )}
+
+      {showCategories && (
+        <CategoriesModal
+          categories={categories}
+          onClose={() => setShowCategories(false)}
+          onChanged={load}
         />
       )}
     </div>

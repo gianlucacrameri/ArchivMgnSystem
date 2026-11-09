@@ -126,8 +126,9 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
           {item.description && <p className="item-detail__description">{item.description}</p>}
 
           <hr className="divider" />
-
+          <br />
           <h3 className="section-title">Bestand anpassen</h3>
+          <br />
           <form onSubmit={submitRequest} className="stacked-form">
             <div className="segmented">
               <button
@@ -135,14 +136,14 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
                 className={`segmented__option ${type === "ADD" ? "is-active" : ""}`}
                 onClick={() => setType("ADD")}
               >
-                + Zubuchen
+                + Hinzufügen
               </button>
               <button
                 type="button"
                 className={`segmented__option ${type === "USE" ? "is-active" : ""}`}
                 onClick={() => setType("USE")}
               >
-                − Entnehmen
+                − Verbrauchen
               </button>
             </div>
 

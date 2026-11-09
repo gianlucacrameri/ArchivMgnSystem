@@ -113,8 +113,9 @@ public class TransactionServiceImpl implements TransactionService {
         }.getType());
 
         transactionDTOS.forEach(transactionDTO -> {
-            transactionDTO.setUser(null);
-            transactionDTO.setItem(null);
+            if (transactionDTO.getUser() != null) {
+                transactionDTO.getUser().setTransactions(null);
+            }
         });
 
         return Response.builder()
@@ -153,8 +154,9 @@ public class TransactionServiceImpl implements TransactionService {
         }.getType());
 
         transactionDTOS.forEach(transactionDTO -> {
-            transactionDTO.setUser(null);
-            transactionDTO.setItem(null);
+            if (transactionDTO.getUser() != null) {
+                transactionDTO.getUser().setTransactions(null);
+            }
         });
 
         return Response.builder()

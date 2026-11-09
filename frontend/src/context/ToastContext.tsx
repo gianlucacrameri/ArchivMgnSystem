@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
 interface Toast {
   id: number;
@@ -25,10 +25,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, 4000);
   }, []);
 
-  const value: ToastState = {
-    showSuccess: (message) => push(message, "success"),
-    showError: (message) => push(message, "error"),
-  };
+  // Stabile Referenz: sonst bekommt jede Komponente, die useToast() nutzt,
+  // bei jedem Toast (irgendwo in der App!) ein "neues" Context-Objekt und
+  // rendert unnötig neu - das verursachte u.a. das kurze Scrollbar-Flackern
+  // beim Schliessen eines Modals nach einer Erfolgsmeldung.
+  const value = useMemo<ToastState>(
+    () => ({
+      showSuccess: (message: string) => push(message, "success"),
+      showError: (message: string) => push(message, "error"),
+    }),
+    [push]
+  );
 
   return (
     <ToastContext.Provider value={value}>

@@ -49,4 +49,23 @@ public class EventController {
             @PathVariable Long reservationId) {
         return ResponseEntity.ok(eventService.removeReservation(id, reservationId));
     }
+
+    @PostMapping("/{id}/join")
+    public ResponseEntity<Response> requestToJoin(@PathVariable Long id) {
+        return ResponseEntity.ok(eventService.requestToJoin(id));
+    }
+
+    @PutMapping("/{id}/participants/{participantId}/approve")
+    public ResponseEntity<Response> approveParticipant(
+            @PathVariable Long id,
+            @PathVariable Long participantId) {
+        return ResponseEntity.ok(eventService.approveParticipant(id, participantId));
+    }
+
+    @DeleteMapping("/{id}/participants/{participantId}")
+    public ResponseEntity<Response> removeParticipant(
+            @PathVariable Long id,
+            @PathVariable Long participantId) {
+        return ResponseEntity.ok(eventService.removeParticipant(id, participantId));
+    }
 }

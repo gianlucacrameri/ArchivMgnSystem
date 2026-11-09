@@ -36,6 +36,13 @@ body {
   color-scheme: dark;
 }
 
+html {
+  /* Reserviert dauerhaft Platz für die Scrollbar, damit sie beim Öffnen/
+     Schliessen eines Modals (overflow: hidden <-> auto am body) nicht
+     erscheint/verschwindet und dadurch den Inhalt seitlich verschiebt. */
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   background: var(--color-bg);

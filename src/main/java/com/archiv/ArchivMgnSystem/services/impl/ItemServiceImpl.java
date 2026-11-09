@@ -84,13 +84,11 @@ public class ItemServiceImpl implements ItemService {
             itemToSave.setLocationImageUrl(saveImage(locationImageFile));
         }
 
-        // Artikelnummer wird nicht vom Admin vergeben, sondern aus der
-        // generierten Item-ID abgeleitet - garantiert eindeutig und fortlaufend.
-        // Für den ersten Insert brauchen wir trotzdem schon einen (eindeutigen,
-        // nicht-null) Platzhalter, da die sku-Spalte NOT NULL + UNIQUE ist.
-        itemToSave.setSku(UUID.randomUUID().toString());
-        itemRepository.save(itemToSave);
-        itemToSave.setSku(String.format("ART-%05d", itemToSave.getId()));
+        // Artikelnummer wird nicht vom Admin vergeben, sondern fortlaufend ab 0
+        // vergeben - unabhängig von der technischen DB-ID, damit fehlgeschlagene
+        // Inserts oder gelöschte Items keine Lücken/Sprünge verursachen.
+        int nextArticleNumber = itemRepository.findHighestArticleNumber() + 1;
+        itemToSave.setSku(String.format("ART-%05d", nextArticleNumber));
         itemRepository.save(itemToSave);
 
         return Response.builder()

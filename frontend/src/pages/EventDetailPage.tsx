@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { EventDTO } from "../types";
-import { deleteEvent, fetchEvent, removeReservation } from "../api/events";
+import {
+  approveParticipant,
+  deleteEvent,
+  fetchEvent,
+  removeParticipant,
+  removeReservation,
+  requestToJoinEvent,
+} from "../api/events";
 import AuthenticatedImage from "../components/AuthenticatedImage";
 import AddReservationModal from "../components/AddReservationModal";
 import { ApiError } from "../api/client";
@@ -46,7 +53,14 @@ export default function EventDetailPage() {
   if (loading) return <div className="page"><p className="hint">Lädt…</p></div>;
   if (!event) return <div className="page"><p className="hint">Event nicht gefunden.</p></div>;
 
-  const canManage = isAdmin || (userId !== null && userId === event.createdById);
+  const isOwner = userId !== null && userId === event.createdById;
+  const myParticipation = event.participants?.find((p) => p.userId === userId);
+  const isApprovedHelper = myParticipation?.status === "APPROVED";
+  const canManage = isAdmin || isOwner || isApprovedHelper;
+  const canManageEvent = isAdmin || isOwner;
+  const canRequestToJoin = !isOwner && !isAdmin && !myParticipation;
+  const pendingParticipants = event.participants?.filter((p) => p.status === "PENDING") ?? [];
+  const approvedParticipants = event.participants?.filter((p) => p.status === "APPROVED") ?? [];
 
   async function handleRemoveReservation(reservationId: number) {
     if (!event) return;
@@ -68,6 +82,35 @@ export default function EventDetailPage() {
       navigate("/events");
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Löschen fehlgeschlagen");
+    }
+  }
+
+  async function handleJoinRequest() {
+    if (!event) return;
+    try {
+      setEvent(await requestToJoinEvent(event.id));
+      showSuccess("Anfrage gesendet und wartet auf Freigabe");
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Anfrage fehlgeschlagen");
+    }
+  }
+
+  async function handleApprove(participantId: number) {
+    if (!event) return;
+    try {
+      setEvent(await approveParticipant(event.id, participantId));
+      showSuccess("Anfrage freigegeben");
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Freigeben fehlgeschlagen");
+    }
+  }
+
+  async function handleRemoveParticipant(participantId: number) {
+    if (!event) return;
+    try {
+      setEvent(await removeParticipant(event.id, participantId));
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Aktion fehlgeschlagen");
     }
   }
 
@@ -119,7 +162,90 @@ export default function EventDetailPage() {
         ))}
       </ul>
 
-      {canManage && (
+      <hr className="divider" />
+
+      <h2 className="section-title">Mithelfer</h2>
+
+      {canRequestToJoin && (
+        <div className="stacked-form">
+          <p className="hint">Du kannst anfragen, bei diesem Event mitzuhelfen und die Materialliste mitzupflegen.</p>
+          <button type="button" className="btn btn--secondary" onClick={handleJoinRequest}>
+            Anfrage stellen
+          </button>
+        </div>
+      )}
+
+      {myParticipation?.status === "PENDING" && (
+        <p className="hint">Deine Anfrage wartet auf Freigabe durch den Event-Ersteller.</p>
+      )}
+
+      {isApprovedHelper && (
+        <div className="reservation-row">
+          <div className="reservation-row__info">
+            <strong>Du hilfst bei diesem Event mit</strong>
+          </div>
+          <button
+            type="button"
+            className="btn btn--link btn--danger-text"
+            onClick={() => handleRemoveParticipant(myParticipation!.id)}
+          >
+            Nicht mehr mithelfen
+          </button>
+        </div>
+      )}
+
+      {canManageEvent && pendingParticipants.length > 0 && (
+        <>
+          <p className="hint">Offene Anfragen</p>
+          <ul className="reservation-list">
+            {pendingParticipants.map((p) => (
+              <li key={p.id} className="reservation-row">
+                <div className="reservation-row__info">
+                  <strong>{p.username}</strong>
+                </div>
+                <div className="button-row">
+                  <button type="button" className="btn btn--link" onClick={() => handleApprove(p.id)}>
+                    Freigeben
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--link btn--danger-text"
+                    onClick={() => handleRemoveParticipant(p.id)}
+                  >
+                    Ablehnen
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {approvedParticipants.length > 0 && (
+        <>
+          <p className="hint">Helfen aktuell mit</p>
+          <ul className="reservation-list">
+            {approvedParticipants.map((p) => (
+              <li key={p.id} className="reservation-row">
+                <div className="reservation-row__info">
+                  <strong>{p.username}</strong>
+                </div>
+                {canManageEvent && (
+                  <button
+                    type="button"
+                    className="btn btn--link btn--danger-text"
+                    onClick={() => handleRemoveParticipant(p.id)}
+                  >
+                    Entfernen
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {canManageEvent && (
         <>
           <hr className="divider" />
           <button type="button" className="btn btn--danger" onClick={handleDeleteEvent}>

@@ -73,11 +73,11 @@ export default function CreateItemModal({ categories, onClose, onCreated }: Prop
       <form onSubmit={handleSubmit} className="stacked-form">
         <label className="field">
           <span>Name</span>
-          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Name eingeben" />
+          <input required value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="field">
           <span>Lagerort</span>
-          <input required value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Name eingeben" />
+          <input required value={place} onChange={(e) => setPlace(e.target.value)} />
         </label>
 
         <div className="field">
@@ -112,7 +112,6 @@ export default function CreateItemModal({ categories, onClose, onCreated }: Prop
                 required
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="Name eingeben"
                 autoFocus
               />
               {categories.length > 0 && (

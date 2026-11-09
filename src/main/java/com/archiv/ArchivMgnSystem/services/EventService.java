@@ -17,4 +17,10 @@ public interface EventService {
     Response addReservation(Long eventId, ReservationRequest reservationRequest);
 
     Response removeReservation(Long eventId, Long reservationId);
+
+    Response requestToJoin(Long eventId);
+
+    Response approveParticipant(Long eventId, Long participantId);
+
+    Response removeParticipant(Long eventId, Long participantId);
 }

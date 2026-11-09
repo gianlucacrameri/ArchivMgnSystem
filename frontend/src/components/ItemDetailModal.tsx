@@ -153,7 +153,7 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
 
             <label className="field">
               <span>Notiz (optional)</span>
-              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notiz eingeben oder frei lassen" />
+              <input value={note} onChange={(e) => setNote(e.target.value)} />
             </label>
 
             <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>

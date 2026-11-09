@@ -23,15 +23,11 @@ export default function ItemsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
 
-  const load = useCallback(async () => {
+  const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const [itemsPage, cats] = await Promise.all([
-        fetchItems({ filter: search || undefined, categoryId: categoryId || undefined }),
-        fetchCategories(),
-      ]);
+      const itemsPage = await fetchItems({ filter: search || undefined, categoryId: categoryId || undefined });
       setItems(itemsPage.items);
-      setCategories(cats);
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Archiv konnte nicht geladen werden");
     } finally {
@@ -39,10 +35,24 @@ export default function ItemsPage() {
     }
   }, [search, categoryId, showError]);
 
+  const loadCategories = useCallback(async () => {
+    try {
+      setCategories(await fetchCategories());
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Kategorien konnten nicht geladen werden");
+    }
+  }, [showError]);
+
+  // Kategorien ändern sich selten - nur einmal laden, nicht bei jeder Suche.
   useEffect(() => {
-    const timeout = window.setTimeout(load, 250);
+    loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(loadItems, 250);
     return () => window.clearTimeout(timeout);
-  }, [load]);
+  }, [loadItems]);
 
   return (
     <div className="page">
@@ -97,7 +107,7 @@ export default function ItemsPage() {
           item={selectedItem}
           categories={categories}
           onClose={() => setSelectedItem(null)}
-          onChanged={load}
+          onChanged={loadItems}
         />
       )}
 
@@ -107,7 +117,8 @@ export default function ItemsPage() {
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false);
-            load();
+            loadItems();
+            loadCategories();
           }}
         />
       )}
@@ -116,7 +127,10 @@ export default function ItemsPage() {
         <CategoriesModal
           categories={categories}
           onClose={() => setShowCategories(false)}
-          onChanged={load}
+          onChanged={() => {
+            loadItems();
+            loadCategories();
+          }}
         />
       )}
     </div>

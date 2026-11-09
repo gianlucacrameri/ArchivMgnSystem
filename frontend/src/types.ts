@@ -3,6 +3,7 @@ export type UserRole = "ADMIN" | "USER" | "MANAGER";
 export type TransactionType = "ADD" | "USE";
 export type TransactionStatus = "PENDING" | "COMPLETED" | "CANCELED";
 export type StockPrecision = "EXACT" | "APPROXIMATE";
+export type ParticipantStatus = "PENDING" | "APPROVED";
 
 export interface UserDTO {
   id: number;
@@ -56,6 +57,13 @@ export interface ReservationDTO {
   createdAt: string;
 }
 
+export interface EventParticipantDTO {
+  id: number;
+  userId: number;
+  username: string;
+  status: ParticipantStatus;
+}
+
 export interface EventDTO {
   id: number;
   name: string;
@@ -66,6 +74,7 @@ export interface EventDTO {
   createdByName?: string;
   createdAt?: string;
   reservations?: ReservationDTO[];
+  participants?: EventParticipantDTO[];
 }
 
 export interface ApiResponse {

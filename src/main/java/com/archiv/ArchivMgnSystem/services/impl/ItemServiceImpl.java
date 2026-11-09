@@ -9,6 +9,8 @@ import com.archiv.ArchivMgnSystem.models.Category;
 import com.archiv.ArchivMgnSystem.models.Item;
 import com.archiv.ArchivMgnSystem.repositories.CategoryRepository;
 import com.archiv.ArchivMgnSystem.repositories.ItemRepository;
+import com.archiv.ArchivMgnSystem.repositories.ReservationRepository;
+import com.archiv.ArchivMgnSystem.repositories.TransactionRepository;
 import com.archiv.ArchivMgnSystem.services.ItemService;
 import com.archiv.ArchivMgnSystem.specification.ItemFilter;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -44,6 +47,8 @@ public class ItemServiceImpl implements ItemService {
     private final ItemRepository itemRepository;
     private final ModelMapper modelMapper;
     private final CategoryRepository categoryRepository;
+    private final TransactionRepository transactionRepository;
+    private final ReservationRepository reservationRepository;
 
     @Value("${app.upload-dir:${user.dir}/uploads/items}")
     private String uploadDir;
@@ -175,9 +180,17 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Transactional
     public Response deleteItem(Long id) {
         itemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Item not found"));
+
+        // Item hat Fremdschlüssel in transactions (Bestandshistorie) und
+        // reservations (Event-Reservierungen) - ohne Item hat weder das eine
+        // noch das andere einen Sinn, also beides mitlöschen statt an der
+        // DB-Constraint zu scheitern.
+        reservationRepository.deleteByItemId(id);
+        transactionRepository.deleteByItemId(id);
         itemRepository.deleteById(id);
 
         return Response.builder()

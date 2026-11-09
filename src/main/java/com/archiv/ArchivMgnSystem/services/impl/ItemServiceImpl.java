@@ -86,6 +86,9 @@ public class ItemServiceImpl implements ItemService {
 
         // Artikelnummer wird nicht vom Admin vergeben, sondern aus der
         // generierten Item-ID abgeleitet - garantiert eindeutig und fortlaufend.
+        // Für den ersten Insert brauchen wir trotzdem schon einen (eindeutigen,
+        // nicht-null) Platzhalter, da die sku-Spalte NOT NULL + UNIQUE ist.
+        itemToSave.setSku(UUID.randomUUID().toString());
         itemRepository.save(itemToSave);
         itemToSave.setSku(String.format("ART-%05d", itemToSave.getId()));
         itemRepository.save(itemToSave);

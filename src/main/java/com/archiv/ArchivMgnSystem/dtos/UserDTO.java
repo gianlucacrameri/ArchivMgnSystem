@@ -4,6 +4,7 @@ package com.archiv.ArchivMgnSystem.dtos;
 import com.archiv.ArchivMgnSystem.enums.UserRole;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -25,6 +26,9 @@ public class UserDTO {
     private String username;
 
 
+    // Darf vom Client gesendet werden (Passwort ändern), aber nie in einer
+    // Antwort zurückgegeben werden - sonst leakt der Bcrypt-Hash im JSON.
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
 

@@ -9,16 +9,34 @@ interface Props {
 }
 
 /**
+ * Jedes Foto wird nur einmal pro Session geladen und als Blob-URL
+ * zwischengespeichert. Ohne diesen Cache lädt jede neue Montage derselben
+ * Komponente (z.B. beim erneuten Öffnen eines Items oder Zurücknavigieren)
+ * das komplette Bild nochmal über einen authentifizierten Request neu -
+ * das war ein spürbarer Teil der gefühlten Langsamkeit der App.
+ */
+const imageCache = new Map<string, Promise<string>>();
+
+function getCachedImage(src: string): Promise<string> {
+  let promise = imageCache.get(src);
+  if (!promise) {
+    promise = fetchAuthorizedImage(src);
+    imageCache.set(src, promise);
+    promise.catch(() => imageCache.delete(src));
+  }
+  return promise;
+}
+
+/**
  * Item-Fotos liegen hinter dem Login (JWT im Authorization-Header), ein
  * normales <img src> kann diesen Header nicht mitschicken. Diese Komponente
- * lädt das Bild per fetch und zeigt es als Blob-URL an.
+ * lädt das Bild per fetch und zeigt es als (gecachte) Blob-URL an.
  */
 export default function AuthenticatedImage({ src, alt, className }: Props) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    let currentUrl: string | null = null;
     let cancelled = false;
 
     setFailed(false);
@@ -28,14 +46,9 @@ export default function AuthenticatedImage({ src, alt, className }: Props) {
       return;
     }
 
-    fetchAuthorizedImage(src)
+    getCachedImage(src)
       .then((url) => {
-        if (cancelled) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-        currentUrl = url;
-        setObjectUrl(url);
+        if (!cancelled) setObjectUrl(url);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -43,7 +56,6 @@ export default function AuthenticatedImage({ src, alt, className }: Props) {
 
     return () => {
       cancelled = true;
-      if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
   }, [src]);
 

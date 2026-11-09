@@ -26,4 +26,5 @@ public class EventDTO {
     private String createdByName;
     private LocalDateTime createdAt;
     private List<ReservationDTO> reservations;
+    private List<EventParticipantDTO> participants;
 }

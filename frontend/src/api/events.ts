@@ -41,3 +41,21 @@ export async function removeReservation(eventId: number, reservationId: number):
   if (!res.event) throw new Error("Unerwartete Antwort vom Server");
   return res.event;
 }
+
+export async function requestToJoinEvent(eventId: number): Promise<EventDTO> {
+  const res = await apiSend("POST", `/api/events/${eventId}/join`);
+  if (!res.event) throw new Error("Unerwartete Antwort vom Server");
+  return res.event;
+}
+
+export async function approveParticipant(eventId: number, participantId: number): Promise<EventDTO> {
+  const res = await apiSend("PUT", `/api/events/${eventId}/participants/${participantId}/approve`);
+  if (!res.event) throw new Error("Unerwartete Antwort vom Server");
+  return res.event;
+}
+
+export async function removeParticipant(eventId: number, participantId: number): Promise<EventDTO> {
+  const res = await apiSend("DELETE", `/api/events/${eventId}/participants/${participantId}`);
+  if (!res.event) throw new Error("Unerwartete Antwort vom Server");
+  return res.event;
+}

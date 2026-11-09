@@ -26,6 +26,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN') or #id == authentication.principal.user.id")
     public ResponseEntity<Response> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
@@ -42,6 +43,7 @@ public class UserController {
     }
 
     @GetMapping("/transactions/{userId}")
+    @PreAuthorize("hasAuthority('ADMIN') or #userId == authentication.principal.user.id")
     public ResponseEntity<Response> getUserAndTransactions(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getUserTransactions(userId));
     }

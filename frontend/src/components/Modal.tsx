@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { IconClose } from "./Icons";
 
 interface Props {
   title: string;
@@ -31,7 +32,7 @@ export default function Modal({ title, onClose, children }: Props) {
         <div className="modal-panel__header">
           <h2>{title}</h2>
           <button type="button" className="modal-panel__close" onClick={onClose} aria-label="Schliessen">
-            ✕
+            <IconClose />
           </button>
         </div>
         <div className="modal-panel__body">{children}</div>

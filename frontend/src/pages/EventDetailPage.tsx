@@ -8,13 +8,12 @@ import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("de-CH", {
+function formatDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("de-CH", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   });
 }
 
@@ -78,7 +77,9 @@ export default function EventDetailPage() {
         <div>
           <h1>{event.name}</h1>
           <p className="event-card__meta">
-            {formatDateTime(event.startDate)} – {formatDateTime(event.endDate)}
+            {event.startDate === event.endDate
+              ? formatDate(event.startDate)
+              : `${formatDate(event.startDate)} – ${formatDate(event.endDate)}`}
           </p>
           {event.createdByName && <p className="event-card__meta">Erstellt von {event.createdByName}</p>}
         </div>

@@ -10,20 +10,18 @@ interface Props {
   onCreated: (event: EventDTO) => void;
 }
 
-function toLocalInputValue(date: Date): string {
+function toDateInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
-    date.getMinutes()
-  )}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 export default function CreateEventModal({ onClose, onCreated }: Props) {
   const { showError, showSuccess } = useToast();
-  const now = new Date();
+  const today = toDateInputValue(new Date());
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [startDate, setStartDate] = useState(toLocalInputValue(now));
-  const [endDate, setEndDate] = useState(toLocalInputValue(new Date(now.getTime() + 3 * 60 * 60 * 1000)));
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -50,20 +48,23 @@ export default function CreateEventModal({ onClose, onCreated }: Props) {
       <form onSubmit={handleSubmit} className="stacked-form">
         <label className="field">
           <span>Name</span>
-          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="z.B. Turnier Aarau" />
+          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Name eingeben" />
         </label>
         <label className="field">
           <span>Von</span>
           <input
-            type="datetime-local"
+            type="date"
             required
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={(e) => {
+              setStartDate(e.target.value);
+              if (e.target.value > endDate) setEndDate(e.target.value);
+            }}
           />
         </label>
         <label className="field">
           <span>Bis</span>
-          <input type="datetime-local" required value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <input type="date" required min={startDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </label>
         <label className="field">
           <span>Beschreibung (optional)</span>

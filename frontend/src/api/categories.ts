@@ -6,8 +6,10 @@ export async function fetchCategories(): Promise<CategoryDTO[]> {
   return res.categories ?? [];
 }
 
-export async function createCategory(name: string): Promise<void> {
-  await apiSend("POST", "/api/categories/add", { name });
+export async function createCategory(name: string): Promise<CategoryDTO> {
+  const res = await apiSend("POST", "/api/categories/add", { name });
+  if (!res.category) throw new Error("Unerwartete Antwort vom Server");
+  return res.category;
 }
 
 export async function renameCategory(id: number, name: string): Promise<void> {

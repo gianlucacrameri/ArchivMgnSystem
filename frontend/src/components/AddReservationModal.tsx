@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Modal from "./Modal";
+import NumberField from "./NumberField";
 import type { EventDTO, ItemDTO } from "../types";
 import { fetchItems } from "../api/items";
 import { addReservation } from "../api/events";
@@ -18,7 +19,7 @@ export default function AddReservationModal({ event, onClose, onReserved }: Prop
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<ItemDTO[]>([]);
   const [selected, setSelected] = useState<ItemDTO | null>(null);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<number | "">(1);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function AddReservationModal({ event, onClose, onReserved }: Prop
     if (!selected) return;
     setSaving(true);
     try {
-      const updated = await addReservation(event.id, { itemId: selected.id, quantity });
+      const updated = await addReservation(event.id, { itemId: selected.id, quantity: quantity === "" ? 1 : quantity });
       showSuccess(`"${selected.name}" reserviert`);
       onReserved(updated);
     } catch (err) {
@@ -91,14 +92,7 @@ export default function AddReservationModal({ event, onClose, onReserved }: Prop
 
           <label className="field">
             <span>Menge</span>
-            <input
-              type="number"
-              min={1}
-              inputMode="numeric"
-              required
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-            />
+            <NumberField value={quantity} onChange={setQuantity} min={1} required fallback={1} />
           </label>
 
           <button type="submit" className="btn btn--primary btn--block" disabled={saving}>

@@ -2,6 +2,7 @@ package com.archiv.ArchivMgnSystem.controllers;
 
 import com.archiv.ArchivMgnSystem.dtos.ItemDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
+import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.services.ItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -25,33 +26,35 @@ public class ItemController {
     @PostMapping("/add")
     @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<Response> saveProduct(
-            @RequestParam("imageFile")MultipartFile imageFile,
+            @RequestParam(value = "imageFile", required = false)MultipartFile imageFile,
+            @RequestParam(value = "locationImageFile", required = false)MultipartFile locationImageFile,
             @RequestParam("name")String name,
-            @RequestParam("sku")String sku,
             @RequestParam("stockQuantity")Integer stockQuantity,
+            @RequestParam(value = "stockPrecision", required = false)StockPrecision stockPrecision,
             @RequestParam("categoryId")Long categoryId,
             @RequestParam("place")String place,
             @RequestParam(value = "description", required = false)String description
             ) {
         ItemDTO itemDTO = new ItemDTO();
         itemDTO.setName(name);
-        itemDTO.setSku(sku);
         itemDTO.setPlace(place);
         itemDTO.setDescription(description);
         itemDTO.setCategoryId(categoryId);
         itemDTO.setStockQuantity(stockQuantity);
+        itemDTO.setStockPrecision(stockPrecision);
         itemDTO.setCreatedAt(LocalDateTime.now());
 
-        return ResponseEntity.ok(itemService.saveItem(itemDTO, imageFile));
+        return ResponseEntity.ok(itemService.saveItem(itemDTO, imageFile, locationImageFile));
     }
 
     @PutMapping("/update")
     @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<Response> updateItem(
             @RequestParam(value = "imageFile", required = false)MultipartFile imageFile,
+            @RequestParam(value = "locationImageFile", required = false)MultipartFile locationImageFile,
             @RequestParam(value = "name", required = false)String name,
-            @RequestParam(value = "sku", required = false)String sku,
             @RequestParam(value = "stockQuantity", required = false)Integer stockQuantity,
+            @RequestParam(value = "stockPrecision", required = false)StockPrecision stockPrecision,
             @RequestParam(value = "categoryId", required = false)Long categoryId,
             @RequestParam("itemId")Long itemId,
             @RequestParam(value = "place", required = false)String place,
@@ -59,14 +62,14 @@ public class ItemController {
             ) {
         ItemDTO itemDTO = new ItemDTO();
         itemDTO.setName(name);
-        itemDTO.setSku(sku);
         itemDTO.setPlace(place);
         itemDTO.setItemId(itemId);
         itemDTO.setDescription(description);
         itemDTO.setCategoryId(categoryId);
         itemDTO.setStockQuantity(stockQuantity);
+        itemDTO.setStockPrecision(stockPrecision);
 
-        return ResponseEntity.ok(itemService.updateItem(itemDTO, imageFile));
+        return ResponseEntity.ok(itemService.updateItem(itemDTO, imageFile, locationImageFile));
     }
 
     @GetMapping("/all")

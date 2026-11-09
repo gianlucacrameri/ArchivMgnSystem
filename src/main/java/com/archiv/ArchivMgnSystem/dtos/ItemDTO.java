@@ -1,6 +1,7 @@
 package com.archiv.ArchivMgnSystem.dtos;
 
 
+import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
@@ -34,10 +35,13 @@ public class ItemDTO {
 
     private Integer stockQuantity;
 
+    private StockPrecision stockPrecision;
+
 
     private LocalDateTime expirationDate;
     private String description;
     private String imageUrl;
+    private String locationImageUrl;
     private LocalDateTime createdAt;
 
 

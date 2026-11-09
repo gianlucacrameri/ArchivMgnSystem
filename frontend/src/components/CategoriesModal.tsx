@@ -64,7 +64,7 @@ export default function CategoriesModal({ categories, onClose, onChanged }: Prop
       <form onSubmit={handleCreate} className="stacked-form">
         <label className="field">
           <span>Neue Kategorie</span>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="z.B. Bälle" />
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name eingeben" />
         </label>
         <button type="submit" className="btn btn--primary" disabled={saving}>
           {saving ? "Wird angelegt…" : "+ Kategorie anlegen"}

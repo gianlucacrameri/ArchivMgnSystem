@@ -6,19 +6,17 @@ import CreateEventModal from "../components/CreateEventModal";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
 
+function parseLocalDate(isoDate: string): Date {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function formatRange(startDate: string, endDate: string): string {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
   const dateFmt: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", year: "numeric" };
-  const timeFmt: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" };
-  const sameDay = start.toDateString() === end.toDateString();
-  if (sameDay) {
-    return `${start.toLocaleDateString("de-CH", dateFmt)}, ${start.toLocaleTimeString(
-      "de-CH",
-      timeFmt
-    )}–${end.toLocaleTimeString("de-CH", timeFmt)}`;
-  }
-  return `${start.toLocaleDateString("de-CH", dateFmt)} – ${end.toLocaleDateString("de-CH", dateFmt)}`;
+  const start = parseLocalDate(startDate).toLocaleDateString("de-CH", dateFmt);
+  if (startDate === endDate) return start;
+  const end = parseLocalDate(endDate).toLocaleDateString("de-CH", dateFmt);
+  return `${start} – ${end}`;
 }
 
 export default function EventsPage() {

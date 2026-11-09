@@ -2,6 +2,7 @@ export type UserRole = "ADMIN" | "USER" | "MANAGER";
 
 export type TransactionType = "ADD" | "USE";
 export type TransactionStatus = "PENDING" | "COMPLETED" | "CANCELED";
+export type StockPrecision = "EXACT" | "APPROXIMATE";
 
 export interface UserDTO {
   id: number;
@@ -25,9 +26,11 @@ export interface ItemDTO {
   sku: string;
   place: string;
   stockQuantity: number;
+  stockPrecision: StockPrecision;
   expirationDate?: string;
   description?: string;
   imageUrl?: string;
+  locationImageUrl?: string;
   createdAt?: string;
 }
 

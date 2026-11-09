@@ -6,9 +6,9 @@ import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface ItemService {
-    Response saveItem(ItemDTO itemDTO, MultipartFile imageFile);
+    Response saveItem(ItemDTO itemDTO, MultipartFile imageFile, MultipartFile locationImageFile);
 
-    Response updateItem(ItemDTO itemDTO, MultipartFile imageFile);
+    Response updateItem(ItemDTO itemDTO, MultipartFile imageFile, MultipartFile locationImageFile);
 
     Response getAllItems(int page, int size, String filter, Long categoryId);
 

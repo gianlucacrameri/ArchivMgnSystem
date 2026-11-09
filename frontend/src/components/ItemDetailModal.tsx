@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
-import type { CategoryDTO, ItemDTO, TransactionType } from "../types";
+import type { CategoryDTO, ItemDTO, StockPrecision, TransactionType } from "../types";
 import Modal from "./Modal";
+import NumberField from "./NumberField";
 import AuthenticatedImage from "./AuthenticatedImage";
 import { requestTransaction } from "../api/transactions";
 import { deleteItem, updateItem } from "../api/items";
@@ -20,7 +21,7 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
   const { showSuccess, showError } = useToast();
 
   const [type, setType] = useState<TransactionType>("ADD");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<number | "">(1);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,7 +30,9 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
   const [editPlace, setEditPlace] = useState(item.place);
   const [editCategoryId, setEditCategoryId] = useState(item.categoryId);
   const [editDescription, setEditDescription] = useState(item.description ?? "");
+  const [editStockPrecision, setEditStockPrecision] = useState<StockPrecision>(item.stockPrecision ?? "EXACT");
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editLocationImageFile, setEditLocationImageFile] = useState<File | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
   async function submitRequest(e: FormEvent) {
@@ -38,12 +41,11 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
     try {
       await requestTransaction(type === "ADD" ? "add" : "use", {
         itemId: item.id,
-        quantity,
+        quantity: quantity === "" ? 1 : quantity,
         note: note || undefined,
       });
       showSuccess("Antrag wurde eingereicht und wartet auf Freigabe durch einen Admin.");
-      setQuantity(1);
-      setNote("");
+      onClose();
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Antrag konnte nicht gesendet werden");
     } finally {
@@ -61,7 +63,9 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
         place: editPlace,
         categoryId: editCategoryId,
         description: editDescription,
+        stockPrecision: editStockPrecision,
         imageFile: editImageFile,
+        locationImageFile: editLocationImageFile,
       });
       showSuccess("Material aktualisiert");
       setEditMode(false);
@@ -91,6 +95,15 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
         <AuthenticatedImage src={item.imageUrl} alt={item.name} className="item-detail__img" />
       </div>
 
+      {item.locationImageUrl && !editMode && (
+        <>
+          <p className="hint">Lagerort-Foto</p>
+          <div className="item-detail__image">
+            <AuthenticatedImage src={item.locationImageUrl} alt={`Lagerort von ${item.name}`} className="item-detail__img" />
+          </div>
+        </>
+      )}
+
       {!editMode && (
         <>
           <dl className="item-detail__facts">
@@ -100,10 +113,13 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
             </div>
             <div>
               <dt>Bestand</dt>
-              <dd>{item.stockQuantity} Stk.</dd>
+              <dd>
+                {item.stockQuantity} Stk.{" "}
+                <span className="hint">({item.stockPrecision === "APPROXIMATE" ? "ungefähr" : "genau"})</span>
+              </dd>
             </div>
             <div>
-              <dt>SKU</dt>
+              <dt>Artikelnummer</dt>
               <dd>{item.sku}</dd>
             </div>
           </dl>
@@ -132,19 +148,12 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
 
             <label className="field">
               <span>Menge</span>
-              <input
-                type="number"
-                min={1}
-                inputMode="numeric"
-                required
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-              />
+              <NumberField value={quantity} onChange={setQuantity} min={1} required fallback={1} />
             </label>
 
             <label className="field">
               <span>Notiz (optional)</span>
-              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="z.B. für Trainingslager" />
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notiz eingeben oder frei lassen" />
             </label>
 
             <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
@@ -192,6 +201,27 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
               ))}
             </select>
           </label>
+
+          <div className="field">
+            <span>Bestand ist...</span>
+            <div className="segmented">
+              <button
+                type="button"
+                className={`segmented__option ${editStockPrecision === "EXACT" ? "is-active" : ""}`}
+                onClick={() => setEditStockPrecision("EXACT")}
+              >
+                Genau gezählt
+              </button>
+              <button
+                type="button"
+                className={`segmented__option ${editStockPrecision === "APPROXIMATE" ? "is-active" : ""}`}
+                onClick={() => setEditStockPrecision("APPROXIMATE")}
+              >
+                Ungefähr
+              </button>
+            </div>
+          </div>
+
           <label className="field">
             <span>Beschreibung</span>
             <textarea
@@ -201,11 +231,19 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
             />
           </label>
           <label className="field">
-            <span>Neues Foto (optional)</span>
+            <span>Neues Foto des Materials (optional)</span>
             <input
               type="file"
               accept="image/*"
               onChange={(e) => setEditImageFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+          <label className="field">
+            <span>Neues Foto des Lagerorts (optional)</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setEditLocationImageFile(e.target.files?.[0] ?? null)}
             />
           </label>
 

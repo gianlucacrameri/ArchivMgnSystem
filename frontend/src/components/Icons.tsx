@@ -62,6 +62,15 @@ export function IconLogout({ className }: IconProps) {
   );
 }
 
+export function IconUser({ className }: IconProps) {
+  return (
+    <svg {...common} className={className} aria-hidden="true">
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20c1.4-3.6 4.4-5.5 7.5-5.5s6.1 1.9 7.5 5.5" />
+    </svg>
+  );
+}
+
 export function IconBox({ className }: IconProps) {
   return (
     <svg {...common} className={className} aria-hidden="true">

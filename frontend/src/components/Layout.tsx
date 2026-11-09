@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { IconArchive, IconCalendar, IconCheck, IconLogout } from "./Icons";
+import { IconArchive, IconCalendar, IconCheck, IconLogout, IconUser } from "./Icons";
 
 const navItems = [
   { to: "/", label: "Archiv", Icon: IconArchive, end: true },
@@ -33,6 +33,9 @@ export default function Layout() {
               Anfragen
             </NavLink>
           )}
+          <NavLink to="/profile" className={({ isActive }) => `topbar__link ${isActive ? "is-active" : ""}`}>
+            Profil
+          </NavLink>
         </nav>
         <button type="button" className="topbar__logout" onClick={logout}>
           Abmelden
@@ -64,6 +67,10 @@ export default function Layout() {
             <span>Anfragen</span>
           </NavLink>
         )}
+        <NavLink to="/profile" className={({ isActive }) => `tabbar__item ${isActive ? "is-active" : ""}`}>
+          <IconUser className="tabbar__icon" />
+          <span>Profil</span>
+        </NavLink>
         <button type="button" className="tabbar__item tabbar__item--button" onClick={logout}>
           <IconLogout className="tabbar__icon" />
           <span>Abmelden</span>

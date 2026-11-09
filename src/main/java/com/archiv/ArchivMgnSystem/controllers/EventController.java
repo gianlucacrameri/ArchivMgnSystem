@@ -50,6 +50,14 @@ public class EventController {
         return ResponseEntity.ok(eventService.removeReservation(id, reservationId));
     }
 
+    @PutMapping("/{id}/reservations/{reservationId}/collected")
+    public ResponseEntity<Response> setReservationCollected(
+            @PathVariable Long id,
+            @PathVariable Long reservationId,
+            @RequestBody boolean collected) {
+        return ResponseEntity.ok(eventService.setReservationCollected(id, reservationId, collected));
+    }
+
     @PostMapping("/{id}/join")
     public ResponseEntity<Response> requestToJoin(@PathVariable Long id) {
         return ResponseEntity.ok(eventService.requestToJoin(id));

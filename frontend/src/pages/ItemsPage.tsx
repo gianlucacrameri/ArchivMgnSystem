@@ -57,7 +57,7 @@ export default function ItemsPage() {
   return (
     <div className="page">
       <div className="page__header">
-        <h1>Materialarchiv</h1>
+        <h1>Archiv Turnverein Wettingen</h1>
         {isAdmin && (
           <div className="button-row">
             <button type="button" className="btn btn--secondary" onClick={() => setShowCategories(true)}>

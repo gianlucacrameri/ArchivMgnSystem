@@ -161,6 +161,11 @@ a {
     font-size: 18px;
     color: var(--color-primary);
   }
+  .topbar__brand img {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+  }
 
   .topbar__nav {
     display: flex;

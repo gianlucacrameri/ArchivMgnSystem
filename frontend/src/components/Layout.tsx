@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { IconArchive, IconCalendar, IconCheck, IconLogout, IconUser } from "./Icons";
+import logo from '../tv-wettingen-logo.png';
 
 const navItems = [
   { to: "/", label: "Archiv", Icon: IconArchive, end: true },
@@ -13,9 +14,10 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="topbar__brand">Materialarchiv</div>
-        <nav className="topbar__nav">
-          {navItems.map((item) => (
+          <div className="topbar__brand"><img src={logo} alt="TV Wettingen Logo" />
+          </div>
+          <nav className="topbar__nav">
+              {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

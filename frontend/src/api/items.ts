@@ -1,5 +1,5 @@
 import { apiGet, apiSend, apiSendForm } from "./client";
-import type { ItemDTO } from "../types";
+import type { ItemDTO, StockPrecision } from "../types";
 
 export interface ItemsPage {
   items: ItemDTO[];
@@ -29,22 +29,23 @@ export async function fetchItems(params: {
 
 export async function createItem(input: {
   name: string;
-  sku: string;
   place: string;
   stockQuantity: number;
+  stockPrecision: StockPrecision;
   categoryId: number;
   description?: string;
   imageFile?: File | null;
+  locationImageFile?: File | null;
 }): Promise<void> {
   const form = new FormData();
   form.set("name", input.name);
-  form.set("sku", input.sku);
   form.set("place", input.place);
   form.set("stockQuantity", String(input.stockQuantity));
+  form.set("stockPrecision", input.stockPrecision);
   form.set("categoryId", String(input.categoryId));
   if (input.description) form.set("description", input.description);
   if (input.imageFile) form.set("imageFile", input.imageFile);
-  else form.set("imageFile", new Blob());
+  if (input.locationImageFile) form.set("locationImageFile", input.locationImageFile);
 
   await apiSendForm("POST", "/api/items/add", form);
 }
@@ -52,22 +53,24 @@ export async function createItem(input: {
 export async function updateItem(input: {
   itemId: number;
   name?: string;
-  sku?: string;
   place?: string;
   stockQuantity?: number;
+  stockPrecision?: StockPrecision;
   categoryId?: number;
   description?: string;
   imageFile?: File | null;
+  locationImageFile?: File | null;
 }): Promise<void> {
   const form = new FormData();
   form.set("itemId", String(input.itemId));
   if (input.name) form.set("name", input.name);
-  if (input.sku) form.set("sku", input.sku);
   if (input.place) form.set("place", input.place);
   if (input.stockQuantity !== undefined) form.set("stockQuantity", String(input.stockQuantity));
+  if (input.stockPrecision) form.set("stockPrecision", input.stockPrecision);
   if (input.categoryId) form.set("categoryId", String(input.categoryId));
   if (input.description !== undefined) form.set("description", input.description);
   if (input.imageFile) form.set("imageFile", input.imageFile);
+  if (input.locationImageFile) form.set("locationImageFile", input.locationImageFile);
 
   await apiSendForm("PUT", "/api/items/update", form);
 }

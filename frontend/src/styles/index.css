@@ -533,6 +533,10 @@ textarea:focus {
   margin: 0 0 12px;
 }
 
+.item-detail__facts--2col {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .item-detail__facts dt {
   font-size: 11px;
   color: var(--color-text-muted);

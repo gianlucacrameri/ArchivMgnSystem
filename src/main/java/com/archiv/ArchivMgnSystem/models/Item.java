@@ -1,6 +1,7 @@
 package com.archiv.ArchivMgnSystem.models;
 
 
+import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -28,7 +29,6 @@ public class Item {
     private String name;
 
 
-    @NotBlank(message = "SKU is required")
     @Column(unique = true)
     private String sku;
 
@@ -38,10 +38,14 @@ public class Item {
     @Min(value = 0, message = "Minimum quantity is 0")
     private Integer stockQuantity;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    private StockPrecision stockPrecision = StockPrecision.EXACT;
 
     private LocalDateTime expirationDate;
     private String description;
     private String imageUrl;
+    private String locationImageUrl;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -56,6 +60,7 @@ public class Item {
                 ", name='" + name + '\'' +
                 ", sku='" + sku + '\'' +
                 ", stockQuantity=" + stockQuantity +
+                ", stockPrecision=" + stockPrecision +
                 ", expirationDate=" + expirationDate +
                 ", description='" + description + '\'' +
                 ", imageUrl='" + imageUrl + '\'' +

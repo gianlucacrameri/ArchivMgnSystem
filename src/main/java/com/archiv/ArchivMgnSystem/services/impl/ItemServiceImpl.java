@@ -3,6 +3,7 @@ package com.archiv.ArchivMgnSystem.services.impl;
 
 import com.archiv.ArchivMgnSystem.dtos.ItemDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
+import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.exceptions.NotFoundException;
 import com.archiv.ArchivMgnSystem.models.Category;
 import com.archiv.ArchivMgnSystem.models.Item;
@@ -60,7 +61,7 @@ public class ItemServiceImpl implements ItemService {
     );
 
     @Override
-    public Response saveItem(ItemDTO itemDTO, MultipartFile imageFile) {
+    public Response saveItem(ItemDTO itemDTO, MultipartFile imageFile, MultipartFile locationImageFile) {
 
         Category category = categoryRepository.findById(itemDTO.getCategoryId())
                 .orElseThrow(() ->new NotFoundException("Category not found"));
@@ -68,8 +69,8 @@ public class ItemServiceImpl implements ItemService {
         //map dto to product entity
         Item itemToSave = Item.builder()
                 .name(itemDTO.getName())
-                .sku(itemDTO.getSku())
                 .stockQuantity(itemDTO.getStockQuantity())
+                .stockPrecision(itemDTO.getStockPrecision() != null ? itemDTO.getStockPrecision() : StockPrecision.EXACT)
                 .place(itemDTO.getPlace())
                 .description(itemDTO.getDescription())
                 .category(category)
@@ -77,11 +78,16 @@ public class ItemServiceImpl implements ItemService {
                 .build();
 
         if (imageFile != null && !imageFile.isEmpty()) {
-            log.info("image file exists");
-            String imagePath = saveImage(imageFile);
-            itemToSave.setImageUrl(imagePath);
+            itemToSave.setImageUrl(saveImage(imageFile));
+        }
+        if (locationImageFile != null && !locationImageFile.isEmpty()) {
+            itemToSave.setLocationImageUrl(saveImage(locationImageFile));
         }
 
+        // Artikelnummer wird nicht vom Admin vergeben, sondern aus der
+        // generierten Item-ID abgeleitet - garantiert eindeutig und fortlaufend.
+        itemRepository.save(itemToSave);
+        itemToSave.setSku(String.format("ART-%05d", itemToSave.getId()));
         itemRepository.save(itemToSave);
 
         return Response.builder()
@@ -90,13 +96,15 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public Response updateItem(ItemDTO itemDTO, MultipartFile imageFile) {
+    public Response updateItem(ItemDTO itemDTO, MultipartFile imageFile, MultipartFile locationImageFile) {
         Item existingItem = itemRepository.findById(itemDTO.getItemId())
                 .orElseThrow(() -> new NotFoundException("Item not found"));
 
         if (imageFile != null && !imageFile.isEmpty()) {
-            String imagePath = saveImage(imageFile);
-            existingItem.setImageUrl(imagePath);
+            existingItem.setImageUrl(saveImage(imageFile));
+        }
+        if (locationImageFile != null && !locationImageFile.isEmpty()) {
+            existingItem.setLocationImageUrl(saveImage(locationImageFile));
         }
         if (itemDTO.getCategoryId() > 0) {
             Category category = categoryRepository.findById(itemDTO.getCategoryId())
@@ -106,10 +114,6 @@ public class ItemServiceImpl implements ItemService {
 
         if (itemDTO.getName() != null && !itemDTO.getName().isBlank()) {
             existingItem.setName(itemDTO.getName());
-        }
-
-        if (itemDTO.getSku() != null && !itemDTO.getSku().isBlank()) {
-            existingItem.setSku(itemDTO.getSku());
         }
 
         if (itemDTO.getDescription() != null && !itemDTO.getDescription().isBlank()) {
@@ -122,6 +126,10 @@ public class ItemServiceImpl implements ItemService {
 
         if (itemDTO.getStockQuantity() != null && itemDTO.getStockQuantity() >= 0) {
             existingItem.setStockQuantity(itemDTO.getStockQuantity());
+        }
+
+        if (itemDTO.getStockPrecision() != null) {
+            existingItem.setStockPrecision(itemDTO.getStockPrecision());
         }
 
         itemRepository.save(existingItem);

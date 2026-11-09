@@ -28,11 +28,13 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Response createCategory(CategoryDTO categoryDTO) {
         Category categoryToSave = modelMapper.map(categoryDTO, Category.class);
-        categoryRepository.save(categoryToSave);
+        Category savedCategory = categoryRepository.save(categoryToSave);
+        savedCategory.setItems(null);
 
         return Response.builder()
                 .status(200)
                 .message("Category saved successfully")
+                .category(modelMapper.map(savedCategory, CategoryDTO.class))
                 .build();
     }
 

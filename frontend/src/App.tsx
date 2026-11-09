@@ -9,6 +9,7 @@ import ItemsPage from "./pages/ItemsPage";
 import EventsPage from "./pages/EventsPage";
 import EventDetailPage from "./pages/EventDetailPage";
 import RequestsPage from "./pages/RequestsPage";
+import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
               <Route path="/" element={<ItemsPage />} />
               <Route path="/events" element={<EventsPage />} />
               <Route path="/events/:id" element={<EventDetailPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
               <Route
                 path="/requests"
                 element={

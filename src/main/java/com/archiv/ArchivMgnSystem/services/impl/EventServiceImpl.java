@@ -156,6 +156,26 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    public Response setReservationCollected(Long eventId, Long reservationId, boolean collected) {
+        Event event = findEventOrThrow(eventId);
+        assertCanManage(event);
+
+        Reservation reservation = event.getReservations().stream()
+                .filter(r -> r.getId().equals(reservationId))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Reservation not found"));
+
+        reservation.setCollected(collected);
+        reservationRepository.save(reservation);
+
+        return Response.builder()
+                .status(200)
+                .message("success")
+                .event(toDto(event))
+                .build();
+    }
+
+    @Override
     public Response requestToJoin(Long eventId) {
         Event event = findEventOrThrow(eventId);
         User currentUser = userService.getCurrentLoggedInUser();
@@ -274,6 +294,7 @@ public class EventServiceImpl implements EventService {
                             .itemName(r.getItem().getName())
                             .itemImageUrl(r.getItem().getImageUrl())
                             .quantity(r.getQuantity())
+                            .collected(r.isCollected())
                             .createdAt(r.getCreatedAt())
                             .build())
                     .toList();

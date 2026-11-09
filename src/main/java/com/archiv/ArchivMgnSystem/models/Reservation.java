@@ -33,5 +33,8 @@ public class Reservation {
     @Positive(message = "Quantity must be greater than 0")
     private Integer quantity;
 
+    @Builder.Default
+    private boolean collected = false;
+
     private final LocalDateTime createdAt = LocalDateTime.now();
 }

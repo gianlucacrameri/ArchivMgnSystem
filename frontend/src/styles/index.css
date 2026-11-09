@@ -661,6 +661,29 @@ textarea:focus {
   padding: 10px 12px;
 }
 
+.reservation-row input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  min-height: auto;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.reservation-row__check {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.reservation-row--collected {
+  opacity: 0.6;
+}
+
+.reservation-row--collected .reservation-row__info strong {
+  text-decoration: line-through;
+}
+
 .reservation-row__thumb {
   width: 48px;
   height: 48px;

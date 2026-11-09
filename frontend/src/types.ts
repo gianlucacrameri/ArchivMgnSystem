@@ -54,6 +54,7 @@ export interface ReservationDTO {
   itemName: string;
   itemImageUrl?: string;
   quantity: number;
+  collected: boolean;
   createdAt: string;
 }
 

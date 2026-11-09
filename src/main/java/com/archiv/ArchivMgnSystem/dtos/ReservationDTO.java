@@ -20,5 +20,6 @@ public class ReservationDTO {
     private String itemName;
     private String itemImageUrl;
     private Integer quantity;
+    private boolean collected;
     private LocalDateTime createdAt;
 }

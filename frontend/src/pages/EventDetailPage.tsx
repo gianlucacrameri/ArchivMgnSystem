@@ -8,9 +8,11 @@ import {
   removeParticipant,
   removeReservation,
   requestToJoinEvent,
+  setReservationCollected,
 } from "../api/events";
 import AuthenticatedImage from "../components/AuthenticatedImage";
 import AddReservationModal from "../components/AddReservationModal";
+import { IconCheck } from "../components/Icons";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
@@ -61,6 +63,15 @@ export default function EventDetailPage() {
   const canRequestToJoin = !isOwner && !isAdmin && !myParticipation;
   const pendingParticipants = event.participants?.filter((p) => p.status === "PENDING") ?? [];
   const approvedParticipants = event.participants?.filter((p) => p.status === "APPROVED") ?? [];
+
+  async function handleToggleCollected(reservationId: number, collected: boolean) {
+    if (!event) return;
+    try {
+      setEvent(await setReservationCollected(event.id, reservationId, collected));
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Konnte nicht aktualisiert werden");
+    }
+  }
 
   async function handleRemoveReservation(reservationId: number) {
     if (!event) return;
@@ -141,9 +152,25 @@ export default function EventDetailPage() {
 
       {(event.reservations?.length ?? 0) === 0 && <p className="hint">Noch kein Material reserviert.</p>}
 
+      {(event.reservations?.length ?? 0) > 0 && (
+        <p className="hint">
+          {event.reservations!.filter((r) => r.collected).length} von {event.reservations!.length} geholt
+        </p>
+      )}
+
       <ul className="reservation-list">
         {event.reservations?.map((r) => (
-          <li key={r.id} className="reservation-row">
+          <li key={r.id} className={`reservation-row ${r.collected ? "reservation-row--collected" : ""}`}>
+            {canManage ? (
+              <input
+                type="checkbox"
+                checked={r.collected}
+                onChange={(e) => handleToggleCollected(r.id, e.target.checked)}
+                aria-label={`${r.itemName} als geholt markieren`}
+              />
+            ) : (
+              r.collected && <IconCheck className="reservation-row__check" />
+            )}
             <AuthenticatedImage src={r.itemImageUrl} alt={r.itemName} className="reservation-row__thumb" />
             <div className="reservation-row__info">
               <strong>{r.itemName}</strong>

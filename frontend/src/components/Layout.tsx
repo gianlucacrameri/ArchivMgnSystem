@@ -1,9 +1,10 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { IconArchive, IconCalendar, IconCheck, IconLogout } from "./Icons";
 
 const navItems = [
-  { to: "/", label: "Archiv", icon: "📦", end: true },
-  { to: "/events", label: "Events", icon: "📅", end: false },
+  { to: "/", label: "Archiv", Icon: IconArchive, end: true },
+  { to: "/events", label: "Events", Icon: IconCalendar, end: false },
 ];
 
 export default function Layout() {
@@ -50,9 +51,7 @@ export default function Layout() {
             end={item.end}
             className={({ isActive }) => `tabbar__item ${isActive ? "is-active" : ""}`}
           >
-            <span className="tabbar__icon" aria-hidden="true">
-              {item.icon}
-            </span>
+            <item.Icon className="tabbar__icon" />
             <span>{item.label}</span>
           </NavLink>
         ))}
@@ -61,16 +60,12 @@ export default function Layout() {
             to="/requests"
             className={({ isActive }) => `tabbar__item ${isActive ? "is-active" : ""}`}
           >
-            <span className="tabbar__icon" aria-hidden="true">
-              ✅
-            </span>
+            <IconCheck className="tabbar__icon" />
             <span>Anfragen</span>
           </NavLink>
         )}
         <button type="button" className="tabbar__item tabbar__item--button" onClick={logout}>
-          <span className="tabbar__icon" aria-hidden="true">
-            🚪
-          </span>
+          <IconLogout className="tabbar__icon" />
           <span>Abmelden</span>
         </button>
       </nav>

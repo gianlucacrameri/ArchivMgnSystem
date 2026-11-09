@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchAuthorizedImage } from "../api/client";
+import { IconBox } from "./Icons";
 
 interface Props {
   src?: string | null;
@@ -49,7 +50,7 @@ export default function AuthenticatedImage({ src, alt, className }: Props) {
   if (!src || failed) {
     return (
       <div className={`image-placeholder ${className ?? ""}`} aria-hidden="true">
-        <span>📦</span>
+        <IconBox className="image-placeholder__icon" />
       </div>
     );
   }

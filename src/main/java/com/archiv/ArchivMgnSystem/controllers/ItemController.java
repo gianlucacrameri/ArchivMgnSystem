@@ -94,6 +94,7 @@ public class ItemController {
 
         return ResponseEntity.ok()
                 .contentType(contentType)
+                .header("X-Content-Type-Options", "nosniff")
                 .body(resource);
     }
 

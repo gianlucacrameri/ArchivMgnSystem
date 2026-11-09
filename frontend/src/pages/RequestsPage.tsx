@@ -56,7 +56,7 @@ export default function RequestsPage() {
       </div>
 
       {loading && <p className="hint">Lädt…</p>}
-      {!loading && pending.length === 0 && <p className="hint">Keine offenen Anfragen. 🎉</p>}
+      {!loading && pending.length === 0 && <p className="hint">Keine offenen Anfragen.</p>}
 
       <ul className="request-list">
         {pending.map((t) => (

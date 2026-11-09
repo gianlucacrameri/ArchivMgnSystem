@@ -23,7 +23,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -33,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -48,6 +48,16 @@ public class ItemServiceImpl implements ItemService {
     private String uploadDir;
 
     private static final long MAX_IMAGE_SIZE_BYTES = 10L * 1024 * 1024; // 10 MB
+
+    // SVG ist bewusst nicht erlaubt: SVG-Dateien können <script> enthalten und
+    // würden beim Öffnen in einem eigenen Tab (blob: URL, gleiche Origin wie die
+    // App) im Browser ausgeführt - Stored-XSS-Risiko trotz "image/*"-Content-Type.
+    private static final Map<String, String> ALLOWED_IMAGE_TYPES = Map.of(
+            "image/jpeg", ".jpg",
+            "image/png", ".png",
+            "image/webp", ".webp",
+            "image/gif", ".gif"
+    );
 
     @Override
     public Response saveItem(ItemDTO itemDTO, MultipartFile imageFile) {
@@ -190,8 +200,9 @@ public class ItemServiceImpl implements ItemService {
 
     private String saveImage(MultipartFile imageFile) {
         String contentType = imageFile.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Only image files are allowed");
+        String extension = contentType != null ? ALLOWED_IMAGE_TYPES.get(contentType) : null;
+        if (extension == null) {
+            throw new IllegalArgumentException("Only JPEG, PNG, WEBP or GIF images are allowed");
         }
         if (imageFile.getSize() > MAX_IMAGE_SIZE_BYTES) {
             throw new IllegalArgumentException("Image must not be larger than 10 MB");
@@ -202,13 +213,6 @@ public class ItemServiceImpl implements ItemService {
             throw new IllegalStateException("Could not create upload directory");
         }
 
-        String originalFilename = StringUtils.cleanPath(
-                imageFile.getOriginalFilename() != null ? imageFile.getOriginalFilename() : "");
-        String extension = "";
-        int dotIndex = originalFilename.lastIndexOf('.');
-        if (dotIndex >= 0) {
-            extension = originalFilename.substring(dotIndex);
-        }
         String uniqueFileName = UUID.randomUUID() + extension;
 
         File destinationFile = new File(directory, uniqueFileName);

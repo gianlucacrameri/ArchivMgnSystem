@@ -12,6 +12,7 @@ import RequestsPage from "./pages/RequestsPage";
 import ProfilePage from "./pages/ProfilePage";
 import MembersPage from "./pages/MembersPage";
 import MyRequestsPage from "./pages/MyRequestsPage";
+import PrivacyPage from "./pages/PrivacyPage";
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/datenschutz" element={<PrivacyPage />} />
 
             <Route
               element={

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { TransactionDTO } from "../types";
 import { fetchTransactions, updateTransactionStatus } from "../api/transactions";
 import { ApiError } from "../api/client";
+import { notifyAdminCountsChanged } from "../api/admin";
 import { useToast } from "../context/ToastContext";
 
 function formatDateTime(value: string): string {
@@ -42,6 +43,7 @@ export default function RequestsPage() {
       await updateTransactionStatus(id, status);
       showSuccess(status === "COMPLETED" ? "Antrag freigegeben" : "Antrag abgelehnt");
       setPending((prev) => prev.filter((t) => t.id !== id));
+      notifyAdminCountsChanged();
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Aktion fehlgeschlagen");
     } finally {

@@ -48,6 +48,13 @@ public class UserController {
         return ResponseEntity.ok(userService.approveUser(id));
     }
 
+    /** Vergibt ein vorläufiges Passwort für ein Mitglied, das seines vergessen hat. */
+    @PostMapping("/{id}/reset-password")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
+    public ResponseEntity<Response> resetPassword(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.resetPassword(id));
+    }
+
     @PostMapping("/logout-everywhere")
     public ResponseEntity<Response> logoutEverywhere() {
         return ResponseEntity.ok(userService.logoutEverywhere());

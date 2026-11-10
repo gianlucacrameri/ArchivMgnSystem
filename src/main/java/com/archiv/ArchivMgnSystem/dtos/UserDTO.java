@@ -32,6 +32,10 @@ public class UserDTO {
     private String password;
 
 
+    // Nötig, wenn man die eigene E-Mail oder das eigene Passwort ändert.
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String currentPassword;
+
     private String email;
 
     private String phoneNumber;
@@ -40,6 +44,8 @@ public class UserDTO {
     private UserRole role;
 
     private Boolean approved;
+
+    private Boolean passwordResetRequired;
 
     private List<TransactionDTO> transactions;
 

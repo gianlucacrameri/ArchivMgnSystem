@@ -10,11 +10,16 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { ApiError } from "../api/client";
 
+/** So viele Artikel werden auf einmal geladen; "Mehr laden" holt die nächsten. */
+const PAGE_SIZE = 60;
+
 export default function ItemsPage() {
   const { isAdmin } = useAuth();
   const { showError } = useToast();
 
   const [items, setItems] = useState<ItemDTO[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState<number | "">("");
@@ -26,14 +31,19 @@ export default function ItemsPage() {
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const itemsPage = await fetchItems({ filter: search || undefined, categoryId: categoryId || undefined });
+      const itemsPage = await fetchItems({
+        filter: search || undefined,
+        categoryId: categoryId || undefined,
+        size: visibleCount,
+      });
       setItems(itemsPage.items);
+      setTotalItems(itemsPage.totalElements);
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Archiv konnte nicht geladen werden");
     } finally {
       setLoading(false);
     }
-  }, [search, categoryId, showError]);
+  }, [search, categoryId, visibleCount, showError]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -75,13 +85,19 @@ export default function ItemsPage() {
           type="search"
           placeholder="Material suchen…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setVisibleCount(PAGE_SIZE);
+          }}
           className="filter-bar__search"
           inputMode="search"
         />
         <select
           value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")}
+          onChange={(e) => {
+            setCategoryId(e.target.value ? Number(e.target.value) : "");
+            setVisibleCount(PAGE_SIZE);
+          }}
           className="filter-bar__select"
         >
           <option value="">Alle Kategorien</option>
@@ -93,7 +109,7 @@ export default function ItemsPage() {
         </select>
       </div>
 
-      {loading && <p className="hint">Lädt…</p>}
+      {loading && items.length === 0 && <p className="hint">Lädt…</p>}
       {!loading && items.length === 0 && <p className="hint">Keine Treffer.</p>}
 
       <div className="item-grid">
@@ -101,6 +117,22 @@ export default function ItemsPage() {
           <ItemCard key={item.id} item={item} onClick={() => setSelectedItem(item)} />
         ))}
       </div>
+
+      {items.length > 0 && items.length < totalItems && (
+        <div className="load-more">
+          <p className="hint">
+            {items.length} von {totalItems} Artikeln
+          </p>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            disabled={loading}
+            onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+          >
+            {loading ? "Lädt…" : "Mehr laden"}
+          </button>
+        </div>
+      )}
 
       {selectedItem && (
         <ItemDetailModal

@@ -17,6 +17,10 @@ Umgebungsvariablen bereitgestellt (siehe `src/main/resources/application.propert
 | `JWT_EXPIRATION_DAYS` | nein | Gültigkeit einer Anmeldung in Tagen        | `30`                                          |
 | `APP_CORS_ALLOWED_ORIGINS` | produktiv ja | Adresse(n) des Frontends, mit Komma getrennt | leer = nur localhost und private Netzwerkadressen |
 | `APP_UPLOAD_DIR` | nein  | Ordner für hochgeladene Fotos                  | `<Projektverzeichnis>/uploads/items`          |
+| `APP_BACKUP_DIR` | produktiv ja | Ordner für die nächtliche Datensicherung (siehe unten) | leer = keine Sicherung                 |
+| `APP_BACKUP_KEEP_DAYS` | nein | So lange bleiben Datenbank-Sicherungen erhalten | `30`                                     |
+| `APP_BACKUP_CRON` | nein | Zeitpunkt der Sicherung (Spring-Cron-Format)   | `0 0 3 * * *` (täglich 03:00)                 |
+| `APP_BACKUP_MYSQLDUMP_PATH` | nein | Pfad zu `mysqldump`, falls nicht im Suchpfad | `mysqldump`                              |
 
 Beispiel (lokal, bash):
 
@@ -57,10 +61,50 @@ UPDATE users SET role = 'ADMIN' WHERE email = 'deine@mail.ch';
 - Passwörter: mindestens 8 Zeichen, davon ein Buchstabe und eine Zahl.
 - Nach 5 Fehlversuchen ist die Anmeldung für diese E-Mail 15 Minuten gesperrt.
   Die Fehlermeldung verrät nicht, ob die E-Mail existiert.
+- Wer E-Mail oder Passwort im Profil ändert, muss das aktuelle Passwort
+  eingeben.
+- **Passwort vergessen:** Ein Admin erstellt unter **Mitglieder** ein
+  vorläufiges Passwort („Passwort zurücksetzen"). Es wird einmalig angezeigt
+  und persönlich weitergegeben; nach der Anmeldung fordert die Seite dazu
+  auf, ein eigenes Passwort zu setzen.
 - Eine Anmeldung gilt 30 Tage (`JWT_EXPIRATION_DAYS`). Ein Passwortwechsel
   oder „Auf allen Geräten abmelden" im Profil macht alle bisherigen
   Anmeldungen des Kontos sofort ungültig; gelöschte Konten verlieren den
   Zugriff ebenfalls sofort.
+
+## Datensicherung
+
+Sobald `APP_BACKUP_DIR` gesetzt ist, sichert das Backend jede Nacht um 03:00:
+
+```
+<APP_BACKUP_DIR>/datenbank/archiv-2026-01-31_030000.sql.gz   vollständiger Abzug der Datenbank
+<APP_BACKUP_DIR>/fotos/…                                      Kopie aller hochgeladenen Fotos
+```
+
+- Voraussetzung: Das Programm `mysqldump` (Teil des MySQL-Clients) ist auf dem
+  Server installiert.
+- Datenbank-Sicherungen werden nach `APP_BACKUP_KEEP_DAYS` Tagen gelöscht
+  (die drei neuesten bleiben immer). Fotos werden nur ergänzt, nie gelöscht –
+  so passt auch eine ältere Datenbank-Sicherung noch zu den Fotos.
+- Admins sehen im **Profil** unter „Datensicherung", wann zuletzt gesichert
+  wurde, ob ein Fehler auftrat, und können eine Sicherung von Hand starten.
+- **Wichtig:** Der Backup-Ordner sollte auf einem anderen Datenträger liegen
+  als Datenbank und Fotos (zweite Festplatte, Netzlaufwerk) oder regelmässig
+  an einen anderen Ort kopiert werden. Eine Sicherung auf derselben Festplatte
+  hilft bei einem Defekt nicht.
+- Auch `APP_UPLOAD_DIR` sollte produktiv auf einen festen Ordner ausserhalb
+  des Projektverzeichnisses zeigen.
+
+Wiederherstellen:
+
+```bash
+# 1. Datenbank einspielen (in eine leere Datenbank)
+gunzip -c <APP_BACKUP_DIR>/datenbank/archiv-JJJJ-MM-TT_HHMMSS.sql.gz | mysql -u root -p inventory_dp
+# 2. Fotos zurückkopieren
+cp <APP_BACKUP_DIR>/fotos/* <APP_UPLOAD_DIR>/
+```
+
+Die Vorschaubilder erzeugt das Backend danach beim ersten Aufruf selbst neu.
 
 ## Produktiver Betrieb
 
@@ -77,6 +121,14 @@ UPDATE users SET role = 'ADMIN' WHERE email = 'deine@mail.ch';
   Fehlversuchen) statt nur die des Proxys.
 - Frontend mit `VITE_API_BASE_URL=https://…` bauen (siehe
   [`frontend/README.md`](frontend/README.md)).
+- **Schutz im Browser:** Die gebaute Seite enthält eine
+  Content-Security-Policy. Der Browser führt damit nur Skripte der Seite
+  selbst aus und erlaubt Datenverkehr nur zum Backend aus
+  `VITE_API_BASE_URL` – die Adresse muss deshalb beim Bauen stimmen.
+- **Datenschutz-Seite:** `/datenschutz` beschreibt, welche Daten gespeichert
+  werden. Die verantwortliche Stelle lässt sich beim Bauen über
+  `VITE_CONTACT_INFO` eintragen. Der Text sollte vor dem Livegang vom
+  Vorstand geprüft werden.
 
 ## Bestandsänderungen (Freigabe-Workflow)
 

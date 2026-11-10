@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { fetchCurrentUser, logoutEverywhere, updateOwnProfile, type CurrentUser } from "../api/users";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+import BackupPanel from "../components/BackupPanel";
 
 const roleLabels: Record<string, string> = {
   ADMIN: "Admin",
@@ -12,7 +14,7 @@ const roleLabels: Record<string, string> = {
 
 export default function ProfilePage() {
   const { showSuccess, showError } = useToast();
-  const { replaceToken, logout } = useAuth();
+  const { replaceToken, logout, isAdmin, passwordResetRequired } = useAuth();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,6 +23,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -46,12 +49,14 @@ export default function ProfilePage() {
         email,
         phoneNumber,
         password: password || undefined,
+        currentPassword: needsCurrentPassword ? currentPassword : undefined,
       });
       // Nach einer Änderung von E-Mail oder Passwort gilt nur noch das neue Token.
       if (result.token) replaceToken(result.token);
       showSuccess("Profil aktualisiert");
       setUser({ ...user, username, email, phoneNumber });
       setPassword("");
+      setCurrentPassword("");
       setEditMode(false);
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Speichern fehlgeschlagen");
@@ -70,6 +75,10 @@ export default function ProfilePage() {
     }
   }
 
+  // E-Mail und Passwort sind der Schlüssel zum Konto - wer sie ändert, muss
+  // zeigen, dass er das aktuelle Passwort kennt.
+  const needsCurrentPassword = !!user && (password !== "" || email.trim().toLowerCase() !== user.email.toLowerCase());
+
   if (loading) return <div className="page"><p className="hint">Lädt…</p></div>;
   if (!user) return <div className="page"><p className="hint">Profil konnte nicht geladen werden.</p></div>;
 
@@ -78,6 +87,15 @@ export default function ProfilePage() {
       <div className="page__header">
         <h1>Mein Profil</h1>
       </div>
+
+      {passwordResetRequired && !editMode && (
+        <div className="notice-banner" role="status">
+          <span>Du bist mit einem vorläufigen Passwort angemeldet. Bitte setze ein eigenes.</span>
+          <button type="button" className="btn btn--primary" onClick={() => setEditMode(true)}>
+            Passwort ändern
+          </button>
+        </div>
+      )}
 
       {!editMode && (
         <>
@@ -111,6 +129,13 @@ export default function ProfilePage() {
           <p className="hint">
             Eine Anmeldung bleibt 30 Tage gültig. Hast du ein Gerät verloren, meldest du dich hier überall ab.
           </p>
+          <p className="hint">
+            <Link to="/datenschutz" className="text-link">
+              Datenschutz
+            </Link>
+          </p>
+
+          {isAdmin && <BackupPanel />}
         </>
       )}
 
@@ -143,6 +168,20 @@ export default function ProfilePage() {
             </small>
           </label>
 
+          {needsCurrentPassword && (
+            <label className="field">
+              <span>Aktuelles Passwort</span>
+              <input
+                type="password"
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+              <small className="hint">Nötig, um E-Mail oder Passwort zu ändern.</small>
+            </label>
+          )}
+
           <div className="button-row">
             <button type="submit" className="btn btn--primary" disabled={saving}>
               {saving ? "Speichert…" : "Speichern"}
@@ -156,6 +195,7 @@ export default function ProfilePage() {
                 setEmail(user.email);
                 setPhoneNumber(user.phoneNumber);
                 setPassword("");
+                setCurrentPassword("");
               }}
             >
               Abbrechen

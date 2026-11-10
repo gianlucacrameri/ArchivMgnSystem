@@ -1,5 +1,6 @@
 package com.archiv.ArchivMgnSystem.repositories;
 
+import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
 import com.archiv.ArchivMgnSystem.models.Transaction;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -16,6 +17,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     void deleteByItemId(long itemId);
 
     void deleteByItemCategoryId(Long categoryId);
+
+    long countByTransactionStatus(TransactionStatus transactionStatus);
 
     @EntityGraph(attributePaths = "item")
     List<Transaction> findByUserIdOrderByIdDesc(Long userId, Pageable pageable);

@@ -25,5 +25,7 @@ public interface UserService {
 
     Response logoutEverywhere();
 
+    Response resetPassword(Long id);
+
     Response getUserTransactions(Long id);
 }

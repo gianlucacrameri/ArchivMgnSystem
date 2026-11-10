@@ -96,6 +96,13 @@ export default function RegisterPage() {
           {loading ? "Wird erstellt…" : "Registrieren"}
         </button>
 
+        <p className="auth-card__legal">
+          Mit der Registrierung werden dein Name, deine E-Mail-Adresse und deine Telefonnummer gespeichert.{" "}
+          <Link to="/datenschutz" className="text-link">
+            Mehr dazu
+          </Link>
+        </p>
+
         <p className="auth-card__footer">
           Schon ein Konto? <Link to="/login">Anmelden</Link>
         </p>

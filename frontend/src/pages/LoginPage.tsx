@@ -66,6 +66,14 @@ export default function LoginPage() {
         <p className="auth-card__footer">
           Noch kein Konto? <Link to="/register">Registrieren</Link>
         </p>
+        <p className="auth-card__legal">
+          Passwort vergessen? Ein Admin des Vereins kann dir ein neues geben.
+        </p>
+        <p className="auth-card__legal">
+          <Link to="/datenschutz" className="text-link">
+            Datenschutz
+          </Link>
+        </p>
       </form>
     </div>
   );

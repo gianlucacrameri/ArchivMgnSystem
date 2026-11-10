@@ -20,6 +20,8 @@ public class Response {
     private String token;
     private UserRole role;
     private String expirationTime;
+    // einmalig angezeigtes Passwort nach dem Zurücksetzen durch einen Admin
+    private String temporaryPassword;
 
     //for pagination
     private Integer totalPages;

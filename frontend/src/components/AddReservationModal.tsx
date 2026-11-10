@@ -64,7 +64,7 @@ export default function AddReservationModal({ event, onClose, onReserved }: Prop
             {results.map((item) => (
               <li key={item.id}>
                 <button type="button" className="pick-list__item" onClick={() => setSelected(item)}>
-                  <AuthenticatedImage src={item.imageUrl} alt="" className="pick-list__thumb" />
+                  <AuthenticatedImage src={item.imageUrl} alt="" size="thumb" className="pick-list__thumb" />
                   <span className="pick-list__info">
                     <strong>{item.name}</strong>
                     <small>{item.stockQuantity} Stk. verfügbar (Gesamtbestand)</small>
@@ -80,7 +80,7 @@ export default function AddReservationModal({ event, onClose, onReserved }: Prop
       {selected && (
         <form onSubmit={handleSubmit} className="stacked-form">
           <div className="pick-list__item pick-list__item--selected">
-            <AuthenticatedImage src={selected.imageUrl} alt="" className="pick-list__thumb" />
+            <AuthenticatedImage src={selected.imageUrl} alt="" size="thumb" className="pick-list__thumb" />
             <span className="pick-list__info">
               <strong>{selected.name}</strong>
               <small>{selected.stockQuantity} Stk. Gesamtbestand</small>

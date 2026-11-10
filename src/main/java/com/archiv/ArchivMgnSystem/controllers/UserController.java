@@ -42,6 +42,17 @@ public class UserController {
         return ResponseEntity.ok(userService.deleteUser(id));
     }
 
+    @PutMapping("/{id}/approve")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
+    public ResponseEntity<Response> approveUser(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.approveUser(id));
+    }
+
+    @PostMapping("/logout-everywhere")
+    public ResponseEntity<Response> logoutEverywhere() {
+        return ResponseEntity.ok(userService.logoutEverywhere());
+    }
+
     @GetMapping("/transactions/{userId}")
     @PreAuthorize("hasAuthority('ADMIN') or #userId == authentication.principal.user.id")
     public ResponseEntity<Response> getUserAndTransactions(@PathVariable Long userId) {

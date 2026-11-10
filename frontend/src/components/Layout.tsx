@@ -1,15 +1,26 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { IconArchive, IconCalendar, IconCheck, IconLogout, IconUser } from "./Icons";
+import { IconArchive, IconCalendar, IconCheck, IconList, IconLogout, IconUser, IconUsers } from "./Icons";
 import logo from '../tv-wettingen-logo.png';
 
-const navItems = [
+const commonItems = [
   { to: "/", label: "Archiv", Icon: IconArchive, end: true },
   { to: "/events", label: "Events", Icon: IconCalendar, end: false },
 ];
 
+// Admins geben Anträge frei und verwalten Mitglieder; Mitglieder sehen den
+// Stand ihrer eigenen Anträge.
+const adminItems = [
+  { to: "/requests", label: "Anfragen", Icon: IconCheck, end: false },
+  { to: "/members", label: "Mitglieder", Icon: IconUsers, end: false },
+];
+const memberItems = [{ to: "/my-requests", label: "Anträge", Icon: IconList, end: false }];
+
+const profileItem = { to: "/profile", label: "Profil", Icon: IconUser, end: false };
+
 export default function Layout() {
   const { isAdmin, logout } = useAuth();
+  const navItems = [...commonItems, ...(isAdmin ? adminItems : memberItems), profileItem];
 
   return (
     <div className="app-shell">
@@ -17,7 +28,7 @@ export default function Layout() {
           <div className="topbar__brand"><img src={logo} alt="TV Wettingen Logo" />
           </div>
           <nav className="topbar__nav">
-              {navItems.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -27,17 +38,6 @@ export default function Layout() {
               {item.label}
             </NavLink>
           ))}
-          {isAdmin && (
-            <NavLink
-              to="/requests"
-              className={({ isActive }) => `topbar__link ${isActive ? "is-active" : ""}`}
-            >
-              Anfragen
-            </NavLink>
-          )}
-          <NavLink to="/profile" className={({ isActive }) => `topbar__link ${isActive ? "is-active" : ""}`}>
-            Profil
-          </NavLink>
         </nav>
         <button type="button" className="topbar__logout" onClick={logout}>
           Abmelden
@@ -60,19 +60,6 @@ export default function Layout() {
             <span>{item.label}</span>
           </NavLink>
         ))}
-        {isAdmin && (
-          <NavLink
-            to="/requests"
-            className={({ isActive }) => `tabbar__item ${isActive ? "is-active" : ""}`}
-          >
-            <IconCheck className="tabbar__icon" />
-            <span>Anfragen</span>
-          </NavLink>
-        )}
-        <NavLink to="/profile" className={({ isActive }) => `tabbar__item ${isActive ? "is-active" : ""}`}>
-          <IconUser className="tabbar__icon" />
-          <span>Profil</span>
-        </NavLink>
         <button type="button" className="tabbar__item tabbar__item--button" onClick={logout}>
           <IconLogout className="tabbar__icon" />
           <span>Abmelden</span>

@@ -1,6 +1,7 @@
 package com.archiv.ArchivMgnSystem.security;
 
 
+import com.archiv.ArchivMgnSystem.enums.UserRole;
 import com.archiv.ArchivMgnSystem.models.User;
 import lombok.Builder;
 import lombok.Data;
@@ -49,6 +50,8 @@ public class AuthUser implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        // Noch nicht freigegebene Konten haben keinen Zugriff. Admins sind immer
+        // aktiv, damit der erste Admin weiterhin per SQL ernannt werden kann.
+        return user.isApproved() || user.getRole() == UserRole.ADMIN;
     }
 }

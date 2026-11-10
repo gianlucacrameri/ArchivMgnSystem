@@ -67,7 +67,7 @@ export default function RequestsPage() {
                 {t.totalItems} × {t.item?.name ?? "Unbekanntes Material"}
               </strong>
               <span className="event-card__meta">
-                Beantragt von {t.user?.username ?? "?"} am {formatDateTime(t.createdAt)}
+                Beantragt von {t.user?.username ?? "ehemaligem Mitglied"} am {formatDateTime(t.createdAt)}
               </span>
               {t.note && <span className="event-card__meta">Notiz: {t.note}</span>}
             </div>

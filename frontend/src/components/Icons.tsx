@@ -70,6 +70,28 @@ export function IconUser({ className }: IconProps) {
   );
 }
 
+export function IconUsers({ className }: IconProps) {
+  return (
+    <svg {...common} className={className} aria-hidden="true">
+      <circle cx="9" cy="8.5" r="3.2" />
+      <path d="M2.5 19.5c1.1-3.2 3.7-4.9 6.5-4.9s5.4 1.7 6.5 4.9" />
+      <path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8" />
+      <path d="M17.8 14.9c1.8.6 3.1 2.2 3.7 4.6" />
+    </svg>
+  );
+}
+
+export function IconList({ className }: IconProps) {
+  return (
+    <svg {...common} className={className} aria-hidden="true">
+      <rect x="4.5" y="3.5" width="15" height="17" rx="1.5" />
+      <line x1="8.5" y1="8.5" x2="15.5" y2="8.5" />
+      <line x1="8.5" y1="12" x2="15.5" y2="12" />
+      <line x1="8.5" y1="15.5" x2="13" y2="15.5" />
+    </svg>
+  );
+}
+
 export function IconBox({ className }: IconProps) {
   return (
     <svg {...common} className={className} aria-hidden="true">

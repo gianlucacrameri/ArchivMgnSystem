@@ -1,5 +1,6 @@
 import { apiGet, apiSend, apiSendForm } from "./client";
 import type { ItemDTO, StockPrecision } from "../types";
+import { prepareImageForUpload } from "../utils/resizeImage";
 
 export interface ItemsPage {
   items: ItemDTO[];
@@ -44,8 +45,10 @@ export async function createItem(input: {
   form.set("stockPrecision", input.stockPrecision);
   form.set("categoryId", String(input.categoryId));
   if (input.description) form.set("description", input.description);
-  if (input.imageFile) form.set("imageFile", input.imageFile);
-  if (input.locationImageFile) form.set("locationImageFile", input.locationImageFile);
+  if (input.imageFile) form.set("imageFile", await prepareImageForUpload(input.imageFile));
+  if (input.locationImageFile) {
+    form.set("locationImageFile", await prepareImageForUpload(input.locationImageFile));
+  }
 
   await apiSendForm("POST", "/api/items/add", form);
 }
@@ -69,8 +72,10 @@ export async function updateItem(input: {
   if (input.stockPrecision) form.set("stockPrecision", input.stockPrecision);
   if (input.categoryId) form.set("categoryId", String(input.categoryId));
   if (input.description !== undefined) form.set("description", input.description);
-  if (input.imageFile) form.set("imageFile", input.imageFile);
-  if (input.locationImageFile) form.set("locationImageFile", input.locationImageFile);
+  if (input.imageFile) form.set("imageFile", await prepareImageForUpload(input.imageFile));
+  if (input.locationImageFile) {
+    form.set("locationImageFile", await prepareImageForUpload(input.locationImageFile));
+  }
 
   await apiSendForm("PUT", "/api/items/update", form);
 }

@@ -9,7 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.Id;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,6 +45,26 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     private UserRole role;
+
+    /**
+     * Neue Konten müssen von einem Admin freigegeben werden, bevor sie sich
+     * anmelden können. Bestehende Konten (Spalte wird nachträglich ergänzt)
+     * gelten über den DB-Default als freigegeben.
+     */
+    @Builder.Default
+    @Column(nullable = false)
+    @ColumnDefault("1")
+    private boolean approved = true;
+
+    /**
+     * Steckt in jedem ausgestellten Login-Token. Wird die Zahl erhöht
+     * (Passwort geändert, "überall abmelden"), sind alle älteren Tokens ungültig.
+     */
+    @JsonIgnore
+    @Builder.Default
+    @Column(nullable = false)
+    @ColumnDefault("0")
+    private int tokenVersion = 0;
 
     @OneToMany(mappedBy = "user")
     private List<Transaction> transactions;

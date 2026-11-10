@@ -1,18 +1,16 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { register } from "../api/auth";
 import { ApiError } from "../api/client";
-import { useToast } from "../context/ToastContext";
 
 export default function RegisterPage() {
-  const navigate = useNavigate();
-  const { showSuccess } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -20,13 +18,29 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register({ name, email, phoneNumber, password });
-      showSuccess("Konto erstellt – du kannst dich jetzt anmelden.");
-      navigate("/login", { replace: true });
+      setRegistered(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Registrierung fehlgeschlagen");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (registered) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-card">
+          <h1 className="auth-card__title">Konto erstellt</h1>
+          <p className="auth-card__subtitle">
+            Ein Admin des Vereins muss dein Konto noch freigeben. Sobald das erledigt ist, kannst du dich mit
+            deiner E-Mail und deinem Passwort anmelden.
+          </p>
+          <Link to="/login" className="btn btn--primary btn--block">
+            Zur Anmeldung
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -68,11 +82,12 @@ export default function RegisterPage() {
           <input
             type="password"
             required
-            minLength={6}
+            minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
           />
+          <small className="hint">Mindestens 8 Zeichen, davon ein Buchstabe und eine Zahl.</small>
         </label>
 
         {error && <p className="form-error" role="alert">{error}</p>}

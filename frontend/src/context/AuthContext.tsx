@@ -19,6 +19,8 @@ interface AuthState {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  /** Ersetzt das Login-Token, z.B. nachdem E-Mail oder Passwort geändert wurden. */
+  replaceToken: (token: string) => void;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -43,9 +45,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserId(null);
       return;
     }
+    let cancelled = false;
     fetchCurrentUser()
-      .then((user) => setUserId(user.id))
-      .catch(() => setUserId(null));
+      .then((user) => {
+        if (cancelled) return;
+        setUserId(user.id);
+        // Die Rolle kann sich seit der Anmeldung geändert haben (ein Admin hat
+        // sie vergeben oder entzogen) - massgebend ist, was der Server sagt.
+        setRole(user.role);
+        storeAuth(token, user.role);
+      })
+      .catch(() => {
+        if (!cancelled) setUserId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   const value = useMemo<AuthState>(
@@ -66,6 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(null);
         setRole(null);
         setUserId(null);
+      },
+      replaceToken: (newToken: string) => {
+        if (role) storeAuth(newToken, role);
+        setToken(newToken);
       },
     }),
     [token, role, userId]

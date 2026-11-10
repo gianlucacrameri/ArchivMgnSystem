@@ -24,4 +24,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     );
 
     void deleteByItemId(long itemId);
+
+    void deleteByItemCategoryId(Long categoryId);
 }

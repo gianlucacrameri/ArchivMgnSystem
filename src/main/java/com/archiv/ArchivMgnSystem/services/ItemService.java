@@ -2,8 +2,11 @@ package com.archiv.ArchivMgnSystem.services;
 
 import com.archiv.ArchivMgnSystem.dtos.ItemDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
+import com.archiv.ArchivMgnSystem.enums.ImageSize;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Collection;
 
 public interface ItemService {
     Response saveItem(ItemDTO itemDTO, MultipartFile imageFile, MultipartFile locationImageFile);
@@ -16,6 +19,9 @@ public interface ItemService {
 
     Response deleteItem(Long id);
 
-    Resource loadImage(String filename);
+    Resource loadImage(String filename, ImageSize size);
+
+    /** Löscht die Fotodateien (samt Vorschaubildern), sobald die laufende Transaktion erfolgreich war. */
+    void deleteImagesAfterCommit(Collection<String> imageUrls);
 
 }

@@ -86,6 +86,7 @@ export interface ApiResponse {
   token?: string;
   role?: UserRole;
   expirationTime?: string;
+  temporaryPassword?: string;
 
   totalPages?: number;
   totalElements?: number;

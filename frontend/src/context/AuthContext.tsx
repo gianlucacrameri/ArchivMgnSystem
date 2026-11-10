@@ -17,6 +17,8 @@ interface AuthState {
   userId: number | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  /** Das Konto läuft mit einem vorläufigen Passwort, das ersetzt werden soll. */
+  passwordResetRequired: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   /** Ersetzt das Login-Token, z.B. nachdem E-Mail oder Passwort geändert wurden. */
@@ -29,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => getToken());
   const [role, setRole] = useState<UserRole | null>(() => (getStoredRole() as UserRole | null));
   const [userId, setUserId] = useState<number | null>(null);
+  const [passwordResetRequired, setPasswordResetRequired] = useState(false);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -43,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!token) {
       setUserId(null);
+      setPasswordResetRequired(false);
       return;
     }
     let cancelled = false;
@@ -50,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((user) => {
         if (cancelled) return;
         setUserId(user.id);
+        setPasswordResetRequired(user.passwordResetRequired === true);
         // Die Rolle kann sich seit der Anmeldung geändert haben (ein Admin hat
         // sie vergeben oder entzogen) - massgebend ist, was der Server sagt.
         setRole(user.role);
@@ -70,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userId,
       isAuthenticated: !!token,
       isAdmin: role === "ADMIN",
+      passwordResetRequired,
       login: async (email: string, password: string) => {
         const result = await loginRequest(email, password);
         storeAuth(result.token, result.role);
@@ -87,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(newToken);
       },
     }),
-    [token, role, userId]
+    [token, role, userId, passwordResetRequired]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

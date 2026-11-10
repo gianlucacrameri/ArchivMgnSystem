@@ -103,6 +103,27 @@ export async function apiGetRaw<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** POST für Endpunkte, die nicht die einheitliche ApiResponse-Hülle verwenden. */
+export async function apiPostRaw<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401 && unauthorizedHandler) {
+    unauthorizedHandler();
+  }
+  if (!res.ok) {
+    let message = `Fehler ${res.status}`;
+    try {
+      message = ((await res.json()) as ApiResponse).message ?? message;
+    } catch {
+      // keine JSON-Antwort
+    }
+    throw new ApiError(message, res.status);
+  }
+  return (await res.json()) as T;
+}
+
 export async function apiSend(
   method: "POST" | "PUT" | "DELETE",
   path: string,

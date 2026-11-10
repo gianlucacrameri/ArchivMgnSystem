@@ -32,6 +32,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
@@ -52,6 +53,11 @@ public class UserServiceImpl implements UserService {
     private static final Duration REGISTRATION_WINDOW = Duration.ofHours(1);
 
     private static final Pattern SIMPLE_EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+
+    // Ohne leicht verwechselbare Zeichen (0/O, 1/l/I), damit man es abtippen kann.
+    private static final String TEMPORARY_PASSWORD_ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int TEMPORARY_PASSWORD_LENGTH = 12;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
@@ -220,6 +226,15 @@ public class UserServiceImpl implements UserService {
             existingUser.setRole(userDTO.getRole());
         }
 
+        boolean changesEmail = userDTO.getEmail() != null
+                && !userDTO.getEmail().trim().equalsIgnoreCase(existingUser.getEmail());
+        boolean changesPassword = userDTO.getPassword() != null && !userDTO.getPassword().isEmpty();
+        if (isSelf && (changesEmail || changesPassword)) {
+            // Mit E-Mail und Passwort lässt sich ein Konto übernehmen. Ein
+            // entsperrtes, unbeaufsichtigtes Gerät darf dafür nicht reichen.
+            requireCurrentPassword(existingUser, userDTO.getCurrentPassword());
+        }
+
         if (userDTO.getEmail() != null) {
             String email = userDTO.getEmail().trim();
             if (!SIMPLE_EMAIL.matcher(email).matches()) {
@@ -234,9 +249,12 @@ public class UserServiceImpl implements UserService {
             existingUser.setUsername(userDTO.getUsername().trim());
         }
 
-        if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
+        if (changesPassword) {
             PasswordPolicy.validate(userDTO.getPassword());
             existingUser.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+            if (isSelf) {
+                existingUser.setPasswordResetRequired(false);
+            }
             // Neues Passwort meldet alle bisherigen Sitzungen dieses Kontos ab.
             existingUser.setTokenVersion(existingUser.getTokenVersion() + 1);
         }
@@ -289,6 +307,59 @@ public class UserServiceImpl implements UserService {
                 .status(200)
                 .message("User successfully approved")
                 .build();
+    }
+
+    private void requireCurrentPassword(User user, String currentPassword) {
+        String key = "password-check:" + user.getId();
+        if (rateLimiter.secondsUntilAllowed(key, MAX_FAILED_LOGINS_PER_EMAIL, LOGIN_WINDOW) > 0) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Zu viele Fehlversuche. Bitte später erneut versuchen.");
+        }
+        if (currentPassword == null || currentPassword.isEmpty()) {
+            throw new IllegalArgumentException("Bitte das aktuelle Passwort eingeben");
+        }
+        if (PasswordPolicy.isTooLong(currentPassword) || !passwordEncoder.matches(currentPassword, user.getPassword())) {
+            rateLimiter.record(key, LOGIN_WINDOW);
+            throw new ApiException(HttpStatus.FORBIDDEN, "Das aktuelle Passwort ist falsch");
+        }
+        rateLimiter.reset(key);
+    }
+
+    @Override
+    public Response resetPassword(Long id) {
+        if (currentUserId().equals(id)) {
+            throw new IllegalArgumentException("Dein eigenes Passwort änderst du im Profil");
+        }
+        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("User Not Found"));
+
+        String temporaryPassword = generateTemporaryPassword();
+        user.setPassword(passwordEncoder.encode(temporaryPassword));
+        user.setPasswordResetRequired(true);
+        // Alte Anmeldungen enden, eine allfällige Login-Sperre wird aufgehoben.
+        user.setTokenVersion(user.getTokenVersion() + 1);
+        userRepository.save(user);
+        rateLimiter.reset("login:email:" + user.getEmail().trim().toLowerCase(Locale.ROOT));
+        rateLimiter.reset("password-check:" + user.getId());
+
+        // Das Passwort wird nur dieses eine Mal im Klartext zurückgegeben; der
+        // Admin gibt es dem Mitglied persönlich weiter.
+        return Response.builder()
+                .status(200)
+                .message("Temporary password created")
+                .temporaryPassword(temporaryPassword)
+                .build();
+    }
+
+    private String generateTemporaryPassword() {
+        while (true) {
+            StringBuilder password = new StringBuilder();
+            for (int i = 0; i < TEMPORARY_PASSWORD_LENGTH; i++) {
+                password.append(TEMPORARY_PASSWORD_ALPHABET.charAt(SECURE_RANDOM.nextInt(TEMPORARY_PASSWORD_ALPHABET.length())));
+            }
+            String candidate = password.toString();
+            if (candidate.chars().anyMatch(Character::isLetter) && candidate.chars().anyMatch(Character::isDigit)) {
+                return candidate;
+            }
+        }
     }
 
     @Override

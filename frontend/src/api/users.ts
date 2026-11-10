@@ -7,6 +7,8 @@ export interface CurrentUser {
   email: string;
   phoneNumber: string;
   role: UserRole;
+  /** true = ein Admin hat ein vorläufiges Passwort vergeben, das noch nicht ersetzt wurde. */
+  passwordResetRequired?: boolean;
 }
 
 export async function fetchCurrentUser(): Promise<CurrentUser> {
@@ -19,7 +21,7 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
  */
 export async function updateOwnProfile(
   id: number,
-  input: { username?: string; email?: string; phoneNumber?: string; password?: string }
+  input: { username?: string; email?: string; phoneNumber?: string; password?: string; currentPassword?: string }
 ): Promise<{ token?: string; role?: UserRole }> {
   const res = await apiSend("PUT", `/api/users/update/${id}`, input);
   return { token: res.token, role: res.role };
@@ -43,6 +45,13 @@ export async function approveUser(id: number): Promise<void> {
 
 export async function updateUserRole(id: number, role: UserRole): Promise<void> {
   await apiSend("PUT", `/api/users/update/${id}`, { role });
+}
+
+/** Vergibt ein vorläufiges Passwort und gibt es einmalig zurück. */
+export async function resetUserPassword(id: number): Promise<string> {
+  const res = await apiSend("POST", `/api/users/${id}/reset-password`);
+  if (!res.temporaryPassword) throw new Error("Unerwartete Antwort vom Server");
+  return res.temporaryPassword;
 }
 
 export async function deleteUser(id: number): Promise<void> {

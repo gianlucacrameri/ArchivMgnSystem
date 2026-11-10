@@ -66,6 +66,15 @@ public class User {
     @ColumnDefault("0")
     private int tokenVersion = 0;
 
+    /**
+     * Gesetzt, wenn ein Admin ein vorläufiges Passwort vergeben hat. Die
+     * Oberfläche fordert dann dazu auf, ein eigenes Passwort zu setzen.
+     */
+    @Builder.Default
+    @Column(nullable = false)
+    @ColumnDefault("0")
+    private boolean passwordResetRequired = false;
+
     @OneToMany(mappedBy = "user")
     private List<Transaction> transactions;
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { UserDTO } from "../types";
-import { approveUser, deleteUser, fetchUsers, updateUserRole } from "../api/users";
+import { approveUser, deleteUser, fetchUsers, resetUserPassword, updateUserRole } from "../api/users";
+import { notifyAdminCountsChanged } from "../api/admin";
+import Modal from "../components/Modal";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
@@ -16,6 +18,7 @@ export default function MembersPage() {
   const [users, setUsers] = useState<UserDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState<{ username: string; password: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -36,6 +39,7 @@ export default function MembersPage() {
     try {
       await action();
       showSuccess(successMessage);
+      notifyAdminCountsChanged();
       await load();
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Aktion fehlgeschlagen");
@@ -64,6 +68,32 @@ export default function MembersPage() {
       () => updateUserRole(user.id, makeAdmin ? "ADMIN" : "USER"),
       makeAdmin ? `${user.username} ist jetzt Admin` : `${user.username} ist jetzt Mitglied`
     );
+  }
+
+  async function handleResetPassword(user: UserDTO) {
+    const question =
+      `Für "${user.username}" ein neues, vorläufiges Passwort erstellen? ` +
+      "Das bisherige Passwort gilt danach nicht mehr.";
+    if (!window.confirm(question)) return;
+    setProcessingId(user.id);
+    try {
+      const password = await resetUserPassword(user.id);
+      setTemporaryPassword({ username: user.username, password });
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Zurücksetzen fehlgeschlagen");
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  async function handleCopyPassword() {
+    if (!temporaryPassword) return;
+    try {
+      await navigator.clipboard.writeText(temporaryPassword.password);
+      showSuccess("Passwort kopiert");
+    } catch {
+      showError("Kopieren nicht möglich – bitte von Hand abschreiben");
+    }
   }
 
   function handleRemove(user: UserDTO) {
@@ -157,6 +187,14 @@ export default function MembersPage() {
                       </button>
                       <button
                         type="button"
+                        className="btn btn--link"
+                        disabled={processingId === u.id}
+                        onClick={() => handleResetPassword(u)}
+                      >
+                        Passwort zurücksetzen
+                      </button>
+                      <button
+                        type="button"
                         className="btn btn--link btn--danger-text"
                         disabled={processingId === u.id}
                         onClick={() => handleRemove(u)}
@@ -170,6 +208,26 @@ export default function MembersPage() {
             })}
           </ul>
         </>
+      )}
+
+      {temporaryPassword && (
+        <Modal title="Vorläufiges Passwort" onClose={() => setTemporaryPassword(null)}>
+          <div className="stacked-form">
+            <p className="hint">
+              Gib dieses Passwort persönlich an {temporaryPassword.username} weiter. Es wird nur jetzt angezeigt.
+              Nach der Anmeldung wird {temporaryPassword.username} aufgefordert, ein eigenes Passwort zu setzen.
+            </p>
+            <p className="temp-password">{temporaryPassword.password}</p>
+            <div className="button-row">
+              <button type="button" className="btn btn--primary" onClick={handleCopyPassword}>
+                Kopieren
+              </button>
+              <button type="button" className="btn btn--secondary" onClick={() => setTemporaryPassword(null)}>
+                Schliessen
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

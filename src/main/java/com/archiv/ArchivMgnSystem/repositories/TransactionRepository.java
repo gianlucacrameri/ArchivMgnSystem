@@ -9,4 +9,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     void deleteByItemId(long itemId);
 
+    void deleteByItemCategoryId(Long categoryId);
+
 }

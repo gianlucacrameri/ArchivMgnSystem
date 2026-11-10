@@ -171,7 +171,7 @@ export default function EventDetailPage() {
             ) : (
               r.collected && <IconCheck className="reservation-row__check" />
             )}
-            <AuthenticatedImage src={r.itemImageUrl} alt={r.itemName} className="reservation-row__thumb" />
+            <AuthenticatedImage src={r.itemImageUrl} alt={r.itemName} size="thumb" className="reservation-row__thumb" />
             <div className="reservation-row__info">
               <strong>{r.itemName}</strong>
               <span>{r.quantity} Stk.</span>

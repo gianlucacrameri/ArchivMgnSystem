@@ -6,6 +6,12 @@ interface Props {
   src?: string | null;
   alt: string;
   className?: string;
+  /**
+   * Der Server liefert verkleinerte Varianten: "thumb" (~480px, einige 10 KB)
+   * für Kacheln und Listen, "medium" (~1600px) für die Detailansicht. Das
+   * Original eines Handyfotos hat mehrere MB und wird nie direkt geladen.
+   */
+  size: "thumb" | "medium";
 }
 
 /**
@@ -32,7 +38,7 @@ function getCachedImage(src: string): Promise<string> {
  * normales <img src> kann diesen Header nicht mitschicken. Diese Komponente
  * lädt das Bild per fetch und zeigt es als (gecachte) Blob-URL an.
  */
-export default function AuthenticatedImage({ src, alt, className }: Props) {
+export default function AuthenticatedImage({ src, alt, className, size }: Props) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -46,7 +52,7 @@ export default function AuthenticatedImage({ src, alt, className }: Props) {
       return;
     }
 
-    getCachedImage(src)
+    getCachedImage(`${src}?size=${size}`)
       .then((url) => {
         if (!cancelled) setObjectUrl(url);
       })
@@ -57,7 +63,7 @@ export default function AuthenticatedImage({ src, alt, className }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [src]);
+  }, [src, size]);
 
   if (!src || failed) {
     return (

@@ -92,14 +92,14 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
   return (
     <Modal title={item.name} onClose={onClose}>
       <div className="item-detail__image">
-        <AuthenticatedImage src={item.imageUrl} alt={item.name} className="item-detail__img" />
+        <AuthenticatedImage src={item.imageUrl} alt={item.name} size="medium" className="item-detail__img" />
       </div>
 
       {item.locationImageUrl && !editMode && (
         <>
           <p className="hint">Lagerort-Foto</p>
           <div className="item-detail__image">
-            <AuthenticatedImage src={item.locationImageUrl} alt={`Lagerort von ${item.name}`} className="item-detail__img" />
+            <AuthenticatedImage src={item.locationImageUrl} alt={`Lagerort von ${item.name}`} size="medium" className="item-detail__img" />
           </div>
         </>
       )}

@@ -2,10 +2,12 @@ package com.archiv.ArchivMgnSystem.controllers;
 
 import com.archiv.ArchivMgnSystem.dtos.ItemDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
+import com.archiv.ArchivMgnSystem.enums.ImageSize;
 import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.services.ItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -82,8 +84,10 @@ public class ItemController {
     }
 
     @GetMapping("/images/{filename:.+}")
-    public ResponseEntity<Resource> getImage(@PathVariable String filename) {
-        Resource resource = itemService.loadImage(filename);
+    public ResponseEntity<Resource> getImage(
+            @PathVariable String filename,
+            @RequestParam(required = false) String size) {
+        Resource resource = itemService.loadImage(filename, ImageSize.fromParam(size));
 
         MediaType contentType = MediaType.APPLICATION_OCTET_STREAM;
         try {
@@ -95,8 +99,12 @@ public class ItemController {
             // fall back to octet-stream
         }
 
+        // Dateinamen sind zufällige UUIDs und werden nie überschrieben - der Browser
+        // darf sie dauerhaft behalten. Ohne diesen Header setzt Spring Security
+        // "no-store" und jedes Foto wird bei jedem Seitenaufruf neu geladen.
         return ResponseEntity.ok()
                 .contentType(contentType)
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=31536000, immutable")
                 .header("X-Content-Type-Options", "nosniff")
                 .body(resource);
     }

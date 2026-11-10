@@ -105,6 +105,12 @@
 			<version>3.2.6</version>
 			<scope>compile</scope>
 		</dependency>
+		<!-- Vorschaubilder für Item-Fotos (berücksichtigt EXIF-Drehung von Handyfotos) -->
+		<dependency>
+			<groupId>net.coobird</groupId>
+			<artifactId>thumbnailator</artifactId>
+			<version>0.4.21</version>
+		</dependency>
 
 	</dependencies>
 

@@ -29,6 +29,8 @@ public class TransactionController {
     }
 
     @GetMapping("/all")
+    // Enthält Name/E-Mail/Telefon der Antragsteller - nur für Admins.
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<Response> getAllTransactions(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "1000") int size,
@@ -39,11 +41,15 @@ public class TransactionController {
     }
 
     @GetMapping("/{id}")
+    // Enthält Name/E-Mail/Telefon der Antragsteller - nur für Admins.
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<Response> getTransactionById(@PathVariable Long id) {
         return ResponseEntity.ok(transactionService.getAllTransactionById(id));
     }
 
     @GetMapping("/by-month-year")
+    // Enthält Name/E-Mail/Telefon der Antragsteller - nur für Admins.
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<Response> getTransactionByMonthAndYear(
             @RequestParam int month,
             @RequestParam int year) {

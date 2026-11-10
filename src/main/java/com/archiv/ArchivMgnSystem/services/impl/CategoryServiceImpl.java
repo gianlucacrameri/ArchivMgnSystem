@@ -6,6 +6,8 @@ import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.exceptions.NotFoundException;
 import com.archiv.ArchivMgnSystem.models.Category;
 import com.archiv.ArchivMgnSystem.repositories.CategoryRepository;
+import com.archiv.ArchivMgnSystem.repositories.ReservationRepository;
+import com.archiv.ArchivMgnSystem.repositories.TransactionRepository;
 import com.archiv.ArchivMgnSystem.services.CategoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,7 @@ import org.modelmapper.TypeToken;
 import org.modelmapper.internal.bytebuddy.description.method.MethodDescription;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -23,6 +26,8 @@ import java.util.List;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final TransactionRepository transactionRepository;
+    private final ReservationRepository reservationRepository;
     private final ModelMapper modelMapper;
 
     @Override
@@ -80,11 +85,15 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Transactional
     public Response deleteCategory(Long id) {
         categoryRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Category not found"));
 
-
+        // Die Kategorie löscht ihr Material mit (cascade). Dessen Anträge und
+        // Reservierungen müssen vorher weg, sonst blockiert die Datenbank.
+        reservationRepository.deleteByItemCategoryId(id);
+        transactionRepository.deleteByItemCategoryId(id);
         categoryRepository.deleteById(id);
 
         return Response.builder()

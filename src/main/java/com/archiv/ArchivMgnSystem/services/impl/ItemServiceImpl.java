@@ -3,6 +3,7 @@ package com.archiv.ArchivMgnSystem.services.impl;
 
 import com.archiv.ArchivMgnSystem.dtos.ItemDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
+import com.archiv.ArchivMgnSystem.enums.ImageSize;
 import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.exceptions.NotFoundException;
 import com.archiv.ArchivMgnSystem.models.Category;
@@ -17,9 +18,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,13 +31,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -54,6 +65,11 @@ public class ItemServiceImpl implements ItemService {
     private String uploadDir;
 
     private static final long MAX_IMAGE_SIZE_BYTES = 10L * 1024 * 1024; // 10 MB
+
+    private static final String VARIANT_DIRECTORY = "variants";
+    private static final Object VARIANT_LOCK = new Object();
+    // Schutz vor "Dekompressionsbomben": kleine Datei, riesige Pixelfläche.
+    private static final long MAX_VARIANT_SOURCE_PIXELS = 50_000_000L;
 
     // SVG ist bewusst nicht erlaubt: SVG-Dateien können <script> enthalten und
     // würden beim Öffnen in einem eigenen Tab (blob: URL, gleiche Origin wie die
@@ -201,22 +217,120 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public Resource loadImage(String filename) {
-        try {
-            Path baseDir = Paths.get(uploadDir).normalize().toAbsolutePath();
-            Path filePath = baseDir.resolve(filename).normalize();
+    public Resource loadImage(String filename, ImageSize size) {
+        Path baseDir = Paths.get(uploadDir).normalize().toAbsolutePath();
+        Path original = baseDir.resolve(filename).normalize();
 
-            if (!filePath.startsWith(baseDir)) {
-                throw new IllegalArgumentException("Invalid file path");
-            }
-
-            Resource resource = new UrlResource(filePath.toUri());
-            if (!resource.exists() || !resource.isReadable()) {
-                throw new NotFoundException("Image not found");
-            }
-            return resource;
-        } catch (MalformedURLException e) {
+        // Nur Dateien direkt im Upload-Ordner: kein "..", kein Unterordner.
+        if (!baseDir.equals(original.getParent())) {
+            throw new IllegalArgumentException("Invalid file path");
+        }
+        if (!Files.isRegularFile(original) || !Files.isReadable(original)) {
             throw new NotFoundException("Image not found");
+        }
+
+        return new FileSystemResource(size == null ? original : variantOf(original, size));
+    }
+
+    /**
+     * Liefert die verkleinerte JPEG-Variante eines Fotos und erzeugt sie beim
+     * ersten Zugriff. Klappt das nicht (unbekanntes Format, zu gross, defekt),
+     * wird einfach das Original ausgeliefert.
+     */
+    private Path variantOf(Path original, ImageSize size) {
+        String name = original.getFileName().toString();
+        String lowerName = name.toLowerCase(Locale.ROOT);
+        boolean jpeg = lowerName.endsWith(".jpg");
+        boolean needsFlattening = lowerName.endsWith(".png") || lowerName.endsWith(".gif");
+        if (!jpeg && !needsFlattening) {
+            return original; // z.B. WebP: die JVM bringt dafür keinen Decoder mit
+        }
+
+        Path variantDir = original.getParent().resolve(VARIANT_DIRECTORY);
+        Path variant = variantDir.resolve(size.name().toLowerCase(Locale.ROOT) + "-" + name + ".jpg");
+        if (Files.isRegularFile(variant)) {
+            return variant;
+        }
+
+        // Ein Bild nach dem anderen: 40 Handyfotos gleichzeitig zu dekodieren
+        // (je ~50-100 MB im Speicher) würde den Heap sprengen.
+        synchronized (VARIANT_LOCK) {
+            if (Files.isRegularFile(variant)) {
+                return variant;
+            }
+            Path tmp = null;
+            try {
+                int[] dimensions = readDimensions(original);
+                if ((long) dimensions[0] * dimensions[1] > MAX_VARIANT_SOURCE_PIXELS) {
+                    return original;
+                }
+
+                Files.createDirectories(variantDir);
+                tmp = Files.createTempFile(variantDir, "tmp-", ".jpg");
+
+                // Thumbnails.of(File) wertet die EXIF-Drehung von Handyfotos aus.
+                Thumbnails.Builder<?> builder = jpeg
+                        ? Thumbnails.of(original.toFile())
+                        : Thumbnails.of(flattenOnWhite(original));
+                if (Math.max(dimensions[0], dimensions[1]) <= size.getMaxEdge()) {
+                    builder.scale(1.0); // kleine Bilder nicht hochskalieren
+                } else {
+                    builder.size(size.getMaxEdge(), size.getMaxEdge());
+                }
+                builder.outputFormat("jpg").outputQuality(size.getQuality()).toFile(tmp.toFile());
+
+                Files.move(tmp, variant, StandardCopyOption.REPLACE_EXISTING);
+                return variant;
+            } catch (IOException | RuntimeException | OutOfMemoryError e) {
+                log.warn("Could not create {} variant of {}: {}", size, name, e.toString());
+                deleteQuietly(tmp);
+                return original;
+            }
+        }
+    }
+
+    private int[] readDimensions(Path image) throws IOException {
+        try (ImageInputStream input = ImageIO.createImageInputStream(image.toFile())) {
+            Iterator<ImageReader> readers = input == null ? null : ImageIO.getImageReaders(input);
+            if (readers == null || !readers.hasNext()) {
+                throw new IOException("Unsupported image format");
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input);
+                return new int[]{reader.getWidth(0), reader.getHeight(0)};
+            } finally {
+                reader.dispose();
+            }
+        }
+    }
+
+    /** JPEG kennt keine Transparenz - transparente PNG/GIF-Flächen sonst schwarz. */
+    private BufferedImage flattenOnWhite(Path image) throws IOException {
+        BufferedImage source = ImageIO.read(image.toFile());
+        if (source == null) {
+            throw new IOException("Unsupported image format");
+        }
+        BufferedImage flattened = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = flattened.createGraphics();
+        try {
+            graphics.setColor(Color.WHITE);
+            graphics.fillRect(0, 0, source.getWidth(), source.getHeight());
+            graphics.drawImage(source, 0, 0, null);
+        } finally {
+            graphics.dispose();
+        }
+        return flattened;
+    }
+
+    private void deleteQuietly(Path file) {
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException ignored) {
+            // liegengebliebene Temp-Datei ist harmlos
         }
     }
 
@@ -243,6 +357,11 @@ public class ItemServiceImpl implements ItemService {
             imageFile.transferTo(destinationFile);
         } catch (IOException e) {
             throw new IllegalStateException("Error saving image: " + e.getMessage());
+        }
+
+        // Varianten gleich beim Upload erzeugen, damit der erste Betrachter nicht wartet.
+        for (ImageSize size : ImageSize.values()) {
+            variantOf(destinationFile.toPath().toAbsolutePath().normalize(), size);
         }
 
         return "/api/items/images/" + uniqueFileName;

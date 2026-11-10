@@ -77,5 +77,7 @@ export default function AuthenticatedImage({ src, alt, className, size }: Props)
     return <div className={`image-placeholder image-placeholder--loading ${className ?? ""}`} aria-hidden="true" />;
   }
 
-  return <img src={objectUrl} alt={alt} className={className} loading="lazy" />;
+  // Lässt sich die Datei nicht darstellen (defekt oder kein echtes Bild),
+  // erscheint der Platzhalter statt des "kaputtes Bild"-Symbols des Browsers.
+  return <img src={objectUrl} alt={alt} className={className} loading="lazy" onError={() => setFailed(true)} />;
 }

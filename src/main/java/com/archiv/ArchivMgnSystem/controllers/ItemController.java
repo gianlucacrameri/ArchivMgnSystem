@@ -67,7 +67,8 @@ public class ItemController {
         itemDTO.setPlace(place);
         itemDTO.setItemId(itemId);
         itemDTO.setDescription(description);
-        itemDTO.setCategoryId(categoryId);
+        // Ohne Angabe bleibt die Kategorie unverändert (0 = nicht gesetzt).
+        itemDTO.setCategoryId(categoryId != null ? categoryId : 0);
         itemDTO.setStockQuantity(stockQuantity);
         itemDTO.setStockPrecision(stockPrecision);
 

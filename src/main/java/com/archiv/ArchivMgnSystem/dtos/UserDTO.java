@@ -39,6 +39,8 @@ public class UserDTO {
 
     private UserRole role;
 
+    private Boolean approved;
+
     private List<TransactionDTO> transactions;
 
     private LocalDateTime createdAt;

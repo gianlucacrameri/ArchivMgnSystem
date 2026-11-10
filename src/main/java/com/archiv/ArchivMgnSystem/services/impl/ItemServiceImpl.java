@@ -7,8 +7,10 @@ import com.archiv.ArchivMgnSystem.enums.ImageSize;
 import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.exceptions.NotFoundException;
 import com.archiv.ArchivMgnSystem.models.Category;
+import com.archiv.ArchivMgnSystem.models.Counter;
 import com.archiv.ArchivMgnSystem.models.Item;
 import com.archiv.ArchivMgnSystem.repositories.CategoryRepository;
+import com.archiv.ArchivMgnSystem.repositories.CounterRepository;
 import com.archiv.ArchivMgnSystem.repositories.ItemRepository;
 import com.archiv.ArchivMgnSystem.repositories.ReservationRepository;
 import com.archiv.ArchivMgnSystem.repositories.TransactionRepository;
@@ -29,6 +31,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
@@ -44,10 +48,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -60,6 +68,7 @@ public class ItemServiceImpl implements ItemService {
     private final CategoryRepository categoryRepository;
     private final TransactionRepository transactionRepository;
     private final ReservationRepository reservationRepository;
+    private final CounterRepository counterRepository;
 
     @Value("${app.upload-dir:${user.dir}/uploads/items}")
     private String uploadDir;
@@ -82,6 +91,7 @@ public class ItemServiceImpl implements ItemService {
     );
 
     @Override
+    @Transactional
     public Response saveItem(ItemDTO itemDTO, MultipartFile imageFile, MultipartFile locationImageFile) {
 
         Category category = categoryRepository.findById(itemDTO.getCategoryId())
@@ -98,36 +108,84 @@ public class ItemServiceImpl implements ItemService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        if (imageFile != null && !imageFile.isEmpty()) {
-            itemToSave.setImageUrl(saveImage(imageFile));
-        }
-        if (locationImageFile != null && !locationImageFile.isEmpty()) {
-            itemToSave.setLocationImageUrl(saveImage(locationImageFile));
-        }
+        List<String> savedImages = new ArrayList<>();
+        try {
+            if (imageFile != null && !imageFile.isEmpty()) {
+                itemToSave.setImageUrl(saveImage(imageFile));
+                savedImages.add(itemToSave.getImageUrl());
+            }
+            if (locationImageFile != null && !locationImageFile.isEmpty()) {
+                itemToSave.setLocationImageUrl(saveImage(locationImageFile));
+                savedImages.add(itemToSave.getLocationImageUrl());
+            }
 
-        // Artikelnummer wird nicht vom Admin vergeben, sondern fortlaufend ab 0
-        // vergeben - unabhängig von der technischen DB-ID, damit fehlgeschlagene
-        // Inserts oder gelöschte Items keine Lücken/Sprünge verursachen.
-        int nextArticleNumber = itemRepository.findHighestArticleNumber() + 1;
-        itemToSave.setSku(String.format("ART-%05d", nextArticleNumber));
-        itemRepository.save(itemToSave);
+            itemToSave.setSku(String.format("ART-%05d", nextArticleNumber()));
+            itemRepository.saveAndFlush(itemToSave);
+        } catch (RuntimeException e) {
+            // Item wurde nicht angelegt (z.B. Name schon vergeben) - die bereits
+            // gespeicherten Fotos würden sonst ohne Item liegen bleiben.
+            savedImages.forEach(this::deleteImageFiles);
+            throw e;
+        }
 
         return Response.builder()
                 .message("Item successfully saved")
                 .build();
     }
 
+    /**
+     * Artikelnummern werden fortlaufend ab 0 vergeben - unabhängig von der
+     * technischen DB-ID. Der Zähler läuft auch nach dem Löschen eines Items
+     * weiter, damit eine einmal vergebene Nummer (z.B. auf einem Etikett) nie
+     * für ein anderes Material wiederverwendet wird. Scheitert das Anlegen,
+     * wird die Nummer mit der Transaktion zurückgerollt und geht nicht verloren.
+     */
+    private int nextArticleNumber() {
+        Counter counter = counterRepository.findByNameForUpdate(Counter.ARTICLE_NUMBER)
+                .orElseGet(() -> new Counter(Counter.ARTICLE_NUMBER, 0));
+        // Beim ersten Mal (und falls Nummern von Hand vergeben wurden) hinter
+        // der höchsten vorhandenen Nummer weitermachen.
+        int next = Math.max(counter.getNextValue(), itemRepository.findHighestArticleNumber() + 1);
+        counter.setNextValue(next + 1);
+        counterRepository.save(counter);
+        return next;
+    }
+
     @Override
+    @Transactional
     public Response updateItem(ItemDTO itemDTO, MultipartFile imageFile, MultipartFile locationImageFile) {
         Item existingItem = itemRepository.findById(itemDTO.getItemId())
                 .orElseThrow(() -> new NotFoundException("Item not found"));
 
-        if (imageFile != null && !imageFile.isEmpty()) {
-            existingItem.setImageUrl(saveImage(imageFile));
+        // Ersetzte Fotos werden nach erfolgreichem Speichern vom Server entfernt.
+        List<String> replacedImages = new ArrayList<>();
+        List<String> newImages = new ArrayList<>();
+        try {
+            if (imageFile != null && !imageFile.isEmpty()) {
+                replacedImages.add(existingItem.getImageUrl());
+                existingItem.setImageUrl(saveImage(imageFile));
+                newImages.add(existingItem.getImageUrl());
+            }
+            if (locationImageFile != null && !locationImageFile.isEmpty()) {
+                replacedImages.add(existingItem.getLocationImageUrl());
+                existingItem.setLocationImageUrl(saveImage(locationImageFile));
+                newImages.add(existingItem.getLocationImageUrl());
+            }
+            applyChanges(existingItem, itemDTO);
+            itemRepository.saveAndFlush(existingItem);
+        } catch (RuntimeException e) {
+            newImages.forEach(this::deleteImageFiles);
+            throw e;
         }
-        if (locationImageFile != null && !locationImageFile.isEmpty()) {
-            existingItem.setLocationImageUrl(saveImage(locationImageFile));
-        }
+        deleteImagesAfterCommit(replacedImages);
+
+        return Response.builder()
+                .status(200)
+                .message("Item updated successfully")
+                .build();
+    }
+
+    private void applyChanges(Item existingItem, ItemDTO itemDTO) {
         if (itemDTO.getCategoryId() > 0) {
             Category category = categoryRepository.findById(itemDTO.getCategoryId())
                     .orElseThrow(() -> new NotFoundException("Category not found"));
@@ -153,13 +211,6 @@ public class ItemServiceImpl implements ItemService {
         if (itemDTO.getStockPrecision() != null) {
             existingItem.setStockPrecision(itemDTO.getStockPrecision());
         }
-
-        itemRepository.save(existingItem);
-
-        return Response.builder()
-                .status(200)
-                .message("Item updated successfully")
-                .build();
 
     }
 
@@ -198,8 +249,9 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional
     public Response deleteItem(Long id) {
-        itemRepository.findById(id)
+        Item item = itemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Item not found"));
+        deleteImagesAfterCommit(Arrays.asList(item.getImageUrl(), item.getLocationImageUrl()));
 
         // Item hat Fremdschlüssel in transactions (Bestandshistorie) und
         // reservations (Event-Reservierungen) - ohne Item hat weder das eine
@@ -321,6 +373,45 @@ public class ItemServiceImpl implements ItemService {
             graphics.dispose();
         }
         return flattened;
+    }
+
+    @Override
+    public void deleteImagesAfterCommit(Collection<String> imageUrls) {
+        List<String> urls = imageUrls.stream().filter(Objects::nonNull).toList();
+        if (urls.isEmpty()) {
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            urls.forEach(this::deleteImageFiles);
+            return;
+        }
+        // Erst nach dem Commit: schlägt das Löschen in der Datenbank fehl,
+        // dürfen die Fotos nicht schon weg sein.
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                urls.forEach(ItemServiceImpl.this::deleteImageFiles);
+            }
+        });
+    }
+
+    /** Entfernt das Originalfoto und seine Vorschaubilder. Fehler dabei sind unkritisch. */
+    private void deleteImageFiles(String imageUrl) {
+        try {
+            String filename = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+            Path baseDir = Paths.get(uploadDir).normalize().toAbsolutePath();
+            Path original = baseDir.resolve(filename).normalize();
+            if (filename.isBlank() || !baseDir.equals(original.getParent())) {
+                return;
+            }
+            deleteQuietly(original);
+            for (ImageSize size : ImageSize.values()) {
+                deleteQuietly(baseDir.resolve(VARIANT_DIRECTORY)
+                        .resolve(size.name().toLowerCase(Locale.ROOT) + "-" + filename + ".jpg"));
+            }
+        } catch (RuntimeException e) {
+            log.warn("Could not remove image files for {}: {}", imageUrl, e.getMessage());
+        }
     }
 
     private void deleteQuietly(Path file) {

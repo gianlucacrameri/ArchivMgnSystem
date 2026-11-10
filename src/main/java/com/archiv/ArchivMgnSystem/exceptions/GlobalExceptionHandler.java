@@ -48,7 +48,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidCredentialException.class)
     public ResponseEntity<Response> handleInvalidCredentialException(InvalidCredentialException e) {
-        return respond(HttpStatus.BAD_REQUEST, e.getMessage());
+        return respond(HttpStatus.UNAUTHORIZED, e.getMessage());
+    }
+
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<Response> handleApiException(ApiException e) {
+        return respond(e.getStatus(), e.getMessage());
     }
 
     @ExceptionHandler(NameValueRequiredException.class)

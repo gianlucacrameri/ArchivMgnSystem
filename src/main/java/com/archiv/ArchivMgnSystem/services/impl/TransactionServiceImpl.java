@@ -39,6 +39,8 @@ public class TransactionServiceImpl implements TransactionService {
     private final ModelMapper modelMapper;
     private final TransactionRepository transactionRepository;
 
+    private static final int MAX_OWN_TRANSACTIONS = 100;
+
     @Override
     public Response add(TransactionRequest transactionRequest) {
         Long itemId = transactionRequest.getItemId();
@@ -130,13 +132,33 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
+    public Response getMyTransactions() {
+        User user = userService.getCurrentLoggedInUser();
+        List<Transaction> transactions = transactionRepository.findByUserIdOrderByIdDesc(
+                user.getId(), PageRequest.of(0, MAX_OWN_TRANSACTIONS));
+
+        List<TransactionDTO> transactionDTOS = modelMapper.map(transactions, new TypeToken<List<TransactionDTO>>() {
+        }.getType());
+        // Der Antragsteller ist der Aufrufer selbst - seine Daten müssen nicht mit.
+        transactionDTOS.forEach(transactionDTO -> transactionDTO.setUser(null));
+
+        return Response.builder()
+                .status(200)
+                .message("success")
+                .transactions(transactionDTOS)
+                .build();
+    }
+
+    @Override
     public Response getAllTransactionById(Long id) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
 
         TransactionDTO transactionDTO = modelMapper.map(transaction, TransactionDTO.class);
 
-        transactionDTO.getUser().setTransactions(null);
+        if (transactionDTO.getUser() != null) {
+            transactionDTO.getUser().setTransactions(null);
+        }
 
         return Response.builder()
                 .status(200)

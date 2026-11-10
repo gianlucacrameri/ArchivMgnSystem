@@ -14,6 +14,9 @@ Umgebungsvariablen bereitgestellt (siehe `src/main/resources/application.propert
 | `DB_USERNAME`  | nein    | Datenbank-Benutzer                             | `root`                                        |
 | `DB_PASSWORD`  | ja      | Datenbank-Passwort                             | –                                              |
 | `JWT_SECRET`   | ja      | Secret zum Signieren der JWTs (mind. 32 Zeichen)| –                                              |
+| `JWT_EXPIRATION_DAYS` | nein | Gültigkeit einer Anmeldung in Tagen        | `30`                                          |
+| `APP_CORS_ALLOWED_ORIGINS` | produktiv ja | Adresse(n) des Frontends, mit Komma getrennt | leer = nur localhost und private Netzwerkadressen |
+| `APP_UPLOAD_DIR` | nein  | Ordner für hochgeladene Fotos                  | `<Projektverzeichnis>/uploads/items`          |
 
 Beispiel (lokal, bash):
 
@@ -37,16 +40,53 @@ Secrets, etc.) – niemals echte Werte committen.
   (`PUT /api/transactions/{id}`).
 
 Selbstregistrierung (`POST /api/auth/register`) vergibt immer die Rolle
-`USER`. Höhere Rollen können ausschliesslich von einem bestehenden Admin über
-`PUT /api/users/update/{id}` vergeben werden.
+`USER`, und das neue Konto ist zunächst gesperrt: Ein Admin muss es unter
+**Mitglieder** freigeben, bevor eine Anmeldung möglich ist. Dort vergibt oder
+entzieht ein Admin auch Admin-Rechte und entfernt Mitglieder (deren Events und
+Bestandshistorie bleiben erhalten).
+
+Den allerersten Admin ernennt man einmalig direkt in der Datenbank – Admins
+brauchen keine Freigabe:
+
+```sql
+UPDATE users SET role = 'ADMIN' WHERE email = 'deine@mail.ch';
+```
+
+## Anmeldung & Sicherheit
+
+- Passwörter: mindestens 8 Zeichen, davon ein Buchstabe und eine Zahl.
+- Nach 5 Fehlversuchen ist die Anmeldung für diese E-Mail 15 Minuten gesperrt.
+  Die Fehlermeldung verrät nicht, ob die E-Mail existiert.
+- Eine Anmeldung gilt 30 Tage (`JWT_EXPIRATION_DAYS`). Ein Passwortwechsel
+  oder „Auf allen Geräten abmelden" im Profil macht alle bisherigen
+  Anmeldungen des Kontos sofort ungültig; gelöschte Konten verlieren den
+  Zugriff ebenfalls sofort.
+
+## Produktiver Betrieb
+
+- **HTTPS:** Das Backend spricht selbst nur HTTP. Davor gehört ein
+  Reverse-Proxy mit Zertifikat (z.B. Caddy oder nginx mit Let's Encrypt), der
+  das Frontend ausliefert und `/api` an das Backend weiterreicht. Ohne HTTPS
+  gehen Passwörter und Login-Tokens im Klartext über das Netz.
+- **Erlaubte Herkunft:** `APP_CORS_ALLOWED_ORIGINS` auf die echte Adresse des
+  Frontends setzen, z.B. `https://archiv.example.ch`. Ohne diese Angabe nimmt
+  das Backend nur Aufrufe von localhost und aus privaten Netzen an.
+- **Hinter einem Reverse-Proxy** zusätzlich
+  `SERVER_FORWARD_HEADERS_STRATEGY=native` setzen, damit das Backend die
+  echte Adresse der Besucher sieht (für den Schutz vor zu vielen
+  Fehlversuchen) statt nur die des Proxys.
+- Frontend mit `VITE_API_BASE_URL=https://…` bauen (siehe
+  [`frontend/README.md`](frontend/README.md)).
 
 ## Bestandsänderungen (Freigabe-Workflow)
 
 1. Ein Mitglied beantragt eine Zubuchung (`/api/transactions/add`) oder
    Entnahme (`/api/transactions/use`). Die Anfrage wird als `Transaction`
    mit Status `PENDING` gespeichert – der Lagerbestand ändert sich noch nicht.
-2. Ein Admin sieht offene Anfragen über `GET /api/transactions/all` (Filter
-   z.B. nach `PENDING`) und bestätigt oder lehnt sie ab:
+2. Das Mitglied sieht den Stand seiner eigenen Anträge unter **Anträge**
+   (`GET /api/transactions/mine`). Ein Admin sieht alle offenen Anfragen über
+   `GET /api/transactions/all` (Filter z.B. nach `PENDING`) und bestätigt
+   oder lehnt sie ab:
    `PUT /api/transactions/{id}` mit Body `"COMPLETED"` oder `"CANCELED"`.
 3. Erst bei `COMPLETED` wird der Lagerbestand angepasst. Eine bereits
    entschiedene Anfrage kann nicht erneut verändert werden.
@@ -73,3 +113,9 @@ Selbstregistrierung (`POST /api/auth/register`) vergibt immer die Rolle
   `<Projektverzeichnis>/uploads/items`) gespeichert und über
   `GET /api/items/images/{filename}` ausgeliefert. `Item.imageUrl` enthält
   direkt diesen abrufbaren Pfad.
+- Das Frontend verkleinert Fotos vor dem Upload auf höchstens 2000 Pixel
+  Kantenlänge; der Server erzeugt daraus Vorschaubilder
+  (`?size=thumb` / `?size=medium`). Wird ein Item gelöscht oder ein Foto
+  ersetzt, entfernt der Server die zugehörigen Dateien.
+- Artikelnummern (`ART-00000`, `ART-00001`, …) vergibt der Server fortlaufend.
+  Eine einmal vergebene Nummer wird auch nach dem Löschen nicht wiederverwendet.

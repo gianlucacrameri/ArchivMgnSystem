@@ -36,8 +36,13 @@ public class TransactionController {
             @RequestParam(defaultValue = "1000") int size,
             @RequestParam(required = false) String filter) {
 
-        System.out.println("SEARCH VALUE IS: " +filter);
         return ResponseEntity.ok(transactionService.getAllTransactions(page, size, filter));
+    }
+
+    /** Die eigenen Anträge des angemeldeten Mitglieds samt Status. */
+    @GetMapping("/mine")
+    public ResponseEntity<Response> getMyTransactions() {
+        return ResponseEntity.ok(transactionService.getMyTransactions());
     }
 
     @GetMapping("/{id}")

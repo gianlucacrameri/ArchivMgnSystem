@@ -1,5 +1,6 @@
 package com.archiv.ArchivMgnSystem.security;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,12 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
-import org.springframework.web.WebApplicationInitializer;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -28,36 +25,37 @@ public class AuthFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-         String token = GetTokenFromRequest(request);
+        String token = getTokenFromRequest(request);
 
-         if (token != null) {
-             String email = jwtUtil.getUsernameFromToken(token);
-             UserDetails userDetails = customUserDetailService.loadUserByUsername(email);
+        if (token != null) {
+            try {
+                Claims claims = jwtUtil.parse(token);
+                AuthUser authUser = (AuthUser) customUserDetailService.loadUserByUsername(claims.getSubject());
 
-             if (StringUtils.hasText(email) && jwtUtil.isTokenValid(token, userDetails)) {
-                 log.info("Valid Token, {}" + email);
+                // Gelöschte, noch nicht freigegebene oder per Passwortwechsel
+                // abgemeldete Benutzer verlieren den Zugriff sofort - nicht erst,
+                // wenn das Token abläuft.
+                if (authUser.isEnabled() && jwtUtil.belongsTo(claims, authUser.getUser())) {
+                    UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                            authUser, null, authUser.getAuthorities()
+                    );
+                    authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                }
+            } catch (RuntimeException e) {
+                // Ungültiges, abgelaufenes oder manipuliertes Token bzw. unbekannter
+                // Benutzer: Anfrage läuft unangemeldet weiter und endet mit 401.
+                log.debug("Rejected token: {}", e.getMessage());
+            }
+        }
 
-
-                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                         userDetails, null, userDetails.getAuthorities()
-                 );
-                 authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-             }
-
-         }
-
-         try {
-             filterChain.doFilter(request, response);
-         }catch (Exception e) {
-             log.error("Exception occurred in AuthFilter " + e.getMessage());
-         }
+        filterChain.doFilter(request, response);
     }
-    private String GetTokenFromRequest(HttpServletRequest request) {
+
+    private String getTokenFromRequest(HttpServletRequest request) {
         String token = request.getHeader("Authorization");
         if (token != null && token.startsWith("Bearer ")) {
             return token.substring(7);
-
         }
         return null;
     }

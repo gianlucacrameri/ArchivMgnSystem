@@ -7,9 +7,9 @@ import com.archiv.ArchivMgnSystem.dtos.UserDTO;
 import com.archiv.ArchivMgnSystem.models.User;
 
 public interface UserService {
-    Response registerUser(RegisterRequest registerRequest);
+    Response registerUser(RegisterRequest registerRequest, String clientIp);
 
-    Response loginUser(LoginRequest loginRequest);
+    Response loginUser(LoginRequest loginRequest, String clientIp);
 
     Response getAllUsers();
 
@@ -20,6 +20,10 @@ public interface UserService {
     Response updateUser(Long id, UserDTO userDTO);
 
     Response deleteUser(Long id);
+
+    Response approveUser(Long id);
+
+    Response logoutEverywhere();
 
     Response getUserTransactions(Long id);
 }

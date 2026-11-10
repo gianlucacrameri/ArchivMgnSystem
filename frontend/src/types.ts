@@ -11,6 +11,8 @@ export interface UserDTO {
   email: string;
   phoneNumber: string;
   role: UserRole;
+  /** false = Konto wartet noch auf die Freigabe durch einen Admin. */
+  approved?: boolean;
   createdAt?: string;
 }
 

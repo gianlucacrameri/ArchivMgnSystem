@@ -22,6 +22,12 @@ export async function fetchTransactions(params: {
   return { transactions: res.transactions ?? [], totalPages: res.totalPages ?? 1 };
 }
 
+/** Die eigenen Anträge des angemeldeten Mitglieds, neueste zuerst. */
+export async function fetchMyTransactions(): Promise<TransactionDTO[]> {
+  const res = await apiGet("/api/transactions/mine");
+  return res.transactions ?? [];
+}
+
 export async function updateTransactionStatus(
   id: number,
   status: TransactionStatus

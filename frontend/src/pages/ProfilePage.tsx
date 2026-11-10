@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { fetchCurrentUser, updateOwnProfile, type CurrentUser } from "../api/users";
+import { fetchCurrentUser, logoutEverywhere, updateOwnProfile, type CurrentUser } from "../api/users";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/AuthContext";
 
 const roleLabels: Record<string, string> = {
   ADMIN: "Admin",
@@ -11,6 +12,7 @@ const roleLabels: Record<string, string> = {
 
 export default function ProfilePage() {
   const { showSuccess, showError } = useToast();
+  const { replaceToken, logout } = useAuth();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -39,12 +41,14 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     try {
-      await updateOwnProfile(user.id, {
+      const result = await updateOwnProfile(user.id, {
         username,
         email,
         phoneNumber,
         password: password || undefined,
       });
+      // Nach einer Änderung von E-Mail oder Passwort gilt nur noch das neue Token.
+      if (result.token) replaceToken(result.token);
       showSuccess("Profil aktualisiert");
       setUser({ ...user, username, email, phoneNumber });
       setPassword("");
@@ -53,6 +57,16 @@ export default function ProfilePage() {
       showError(err instanceof ApiError ? err.message : "Speichern fehlgeschlagen");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleLogoutEverywhere() {
+    if (!window.confirm("Auf allen Geräten abmelden? Du musst dich danach überall neu anmelden.")) return;
+    try {
+      await logoutEverywhere();
+      logout();
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Abmelden fehlgeschlagen");
     }
   }
 
@@ -86,9 +100,17 @@ export default function ProfilePage() {
             </div>
           </dl>
 
-          <button type="button" className="btn btn--secondary" onClick={() => setEditMode(true)}>
-            Bearbeiten
-          </button>
+          <div className="button-row">
+            <button type="button" className="btn btn--secondary" onClick={() => setEditMode(true)}>
+              Bearbeiten
+            </button>
+            <button type="button" className="btn btn--link" onClick={handleLogoutEverywhere}>
+              Auf allen Geräten abmelden
+            </button>
+          </div>
+          <p className="hint">
+            Eine Anmeldung bleibt 30 Tage gültig. Hast du ein Gerät verloren, meldest du dich hier überall ab.
+          </p>
         </>
       )}
 
@@ -112,9 +134,13 @@ export default function ProfilePage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Nur ausfüllen, um es zu ändern"
+              minLength={8}
               autoComplete="new-password"
             />
+            <small className="hint">
+              Nur ausfüllen, um es zu ändern. Mindestens 8 Zeichen, davon ein Buchstabe und eine Zahl. Andere
+              Geräte werden dabei abgemeldet.
+            </small>
           </label>
 
           <div className="button-row">

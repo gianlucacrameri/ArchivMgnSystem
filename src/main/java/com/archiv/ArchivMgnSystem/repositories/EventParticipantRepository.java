@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface EventParticipantRepository extends JpaRepository<EventParticipant, Long> {
 
     Optional<EventParticipant> findByEventIdAndUserId(Long eventId, Long userId);
+
+    void deleteByUserId(Long userId);
 }

@@ -17,6 +17,7 @@ import com.archiv.ArchivMgnSystem.security.AuthUser;
 import com.archiv.ArchivMgnSystem.security.JwtUtil;
 import com.archiv.ArchivMgnSystem.security.PasswordPolicy;
 import com.archiv.ArchivMgnSystem.security.RateLimiter;
+import com.archiv.ArchivMgnSystem.services.ActivityLogService;
 import com.archiv.ArchivMgnSystem.services.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -67,6 +68,7 @@ public class UserServiceImpl implements UserService {
     private final ModelMapper modelMapper;
     private final JwtUtil jwtUtils;
     private final RateLimiter rateLimiter;
+    private final ActivityLogService activityLog;
 
     /** Für unbekannte E-Mails wird trotzdem ein Hash geprüft, damit die Antwortzeit nichts verrät. */
     private volatile String dummyPasswordHash;
@@ -97,6 +99,8 @@ public class UserServiceImpl implements UserService {
             throw new ApiException(HttpStatus.CONFLICT, "Name, E-Mail oder Telefonnummer wird bereits verwendet");
         }
         rateLimiter.record(ipKey, REGISTRATION_WINDOW);
+        activityLog.record(ActivityLogService.MEMBER, userToSave.getUsername(),
+                "Neues Konto registriert (" + userToSave.getEmail() + "), wartet auf Freigabe");
 
         return Response.builder()
                 .status(200)
@@ -210,6 +214,7 @@ public class UserServiceImpl implements UserService {
         User currentUser = getCurrentLoggedInUser();
         boolean isAdmin = currentUser.getRole() == UserRole.ADMIN;
         boolean isSelf = currentUser.getId().equals(id);
+        String roleChange = null;
 
         if (!isAdmin && !isSelf) {
             throw new AccessDeniedException("You are not allowed to update this user");
@@ -224,6 +229,9 @@ public class UserServiceImpl implements UserService {
                 throw new IllegalArgumentException("Du kannst deine eigene Rolle nicht ändern");
             }
             existingUser.setRole(userDTO.getRole());
+            roleChange = userDTO.getRole() == UserRole.ADMIN
+                    ? existingUser.getUsername() + " zum Admin gemacht"
+                    : "Admin-Rechte von " + existingUser.getUsername() + " entzogen";
         }
 
         boolean changesEmail = userDTO.getEmail() != null
@@ -265,6 +273,10 @@ public class UserServiceImpl implements UserService {
             throw new ApiException(HttpStatus.CONFLICT, "Name, E-Mail oder Telefonnummer wird bereits verwendet");
         }
 
+        if (roleChange != null) {
+            activityLog.record(ActivityLogService.MEMBER, roleChange);
+        }
+
         // Das Login-Token hängt an E-Mail und Token-Version. Wer sein eigenes
         // Profil ändert, bekommt deshalb ein neues Token und bleibt angemeldet.
         return Response.builder()
@@ -281,7 +293,10 @@ public class UserServiceImpl implements UserService {
         if (currentUserId().equals(id)) {
             throw new IllegalArgumentException("Du kannst dein eigenes Konto nicht löschen");
         }
-        userRepository.findById(id).orElseThrow(() -> new NotFoundException("User Not Found"));
+        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("User Not Found"));
+        activityLog.record(ActivityLogService.MEMBER, user.isApproved()
+                ? "Konto von " + user.getUsername() + " (" + user.getEmail() + ") entfernt"
+                : "Registrierung von " + user.getUsername() + " (" + user.getEmail() + ") abgelehnt");
 
         // Was das Mitglied hinterlässt, bleibt für den Verein erhalten: Events
         // und die Bestandshistorie verlieren nur den Bezug zur Person.
@@ -302,6 +317,7 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("User Not Found"));
         user.setApproved(true);
         userRepository.save(user);
+        activityLog.record(ActivityLogService.MEMBER, "Konto von " + user.getUsername() + " freigegeben");
 
         return Response.builder()
                 .status(200)
@@ -339,6 +355,7 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
         rateLimiter.reset("login:email:" + user.getEmail().trim().toLowerCase(Locale.ROOT));
         rateLimiter.reset("password-check:" + user.getId());
+        activityLog.record(ActivityLogService.MEMBER, "Passwort von " + user.getUsername() + " zurückgesetzt");
 
         // Das Passwort wird nur dieses eine Mal im Klartext zurückgegeben; der
         // Admin gibt es dem Mitglied persönlich weiter.

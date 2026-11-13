@@ -18,6 +18,7 @@ import com.archiv.ArchivMgnSystem.repositories.EventParticipantRepository;
 import com.archiv.ArchivMgnSystem.repositories.EventRepository;
 import com.archiv.ArchivMgnSystem.repositories.ItemRepository;
 import com.archiv.ArchivMgnSystem.repositories.ReservationRepository;
+import com.archiv.ArchivMgnSystem.services.ActivityLogService;
 import com.archiv.ArchivMgnSystem.services.EventService;
 import com.archiv.ArchivMgnSystem.services.UserService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,6 +41,9 @@ public class EventServiceImpl implements EventService {
     private final EventParticipantRepository eventParticipantRepository;
     private final ItemRepository itemRepository;
     private final UserService userService;
+    private final ActivityLogService activityLog;
+
+    private static final DateTimeFormatter LOG_DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
     @Override
     public Response createEvent(EventRequest eventRequest) {
@@ -57,6 +62,7 @@ public class EventServiceImpl implements EventService {
                 .build();
 
         eventRepository.save(event);
+        activityLog.record(ActivityLogService.EVENT, "Event " + describe(event) + " angelegt");
 
         return Response.builder()
                 .status(200)
@@ -94,7 +100,10 @@ public class EventServiceImpl implements EventService {
         Event event = findEventOrThrow(id);
         assertIsOwnerOrAdmin(event);
 
+        int reservationCount = event.getReservations().size();
         eventRepository.delete(event);
+        activityLog.record(ActivityLogService.EVENT, "Event " + describe(event) + " gelöscht"
+                + (reservationCount > 0 ? " (samt " + reservationCount + " Reservierungen)" : ""));
 
         return Response.builder()
                 .status(200)
@@ -127,6 +136,8 @@ public class EventServiceImpl implements EventService {
 
         event.getReservations().add(reservation);
         reservationRepository.save(reservation);
+        activityLog.record(ActivityLogService.EVENT, reservation.getQuantity() + " × \"" + item.getName()
+                + "\" für Event " + describe(event) + " reserviert");
 
         return Response.builder()
                 .status(200)
@@ -147,6 +158,8 @@ public class EventServiceImpl implements EventService {
 
         event.getReservations().remove(reservation);
         reservationRepository.delete(reservation);
+        activityLog.record(ActivityLogService.EVENT, "Reservierung von " + reservation.getQuantity() + " × \""
+                + (reservation.getItem() != null ? reservation.getItem().getName() : "?") + "\" für Event " + describe(event) + " entfernt");
 
         return Response.builder()
                 .status(200)
@@ -246,6 +259,13 @@ public class EventServiceImpl implements EventService {
                 .message("Teilnahme entfernt")
                 .event(toDto(event))
                 .build();
+    }
+
+    private String describe(Event event) {
+        String period = event.getStartDate().equals(event.getEndDate())
+                ? event.getStartDate().format(LOG_DATE)
+                : event.getStartDate().format(LOG_DATE) + "–" + event.getEndDate().format(LOG_DATE);
+        return "\"" + event.getName() + "\" (" + period + ")";
     }
 
     private Event findEventOrThrow(Long id) {

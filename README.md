@@ -148,6 +148,31 @@ Die Vorschaubilder erzeugt das Backend danach beim ersten Aufruf selbst neu.
 3. Erst bei `COMPLETED` wird der Lagerbestand angepasst. Eine bereits
    entschiedene Anfrage kann nicht erneut verändert werden.
 
+### Foto-Anträge
+
+Mitglieder können im Artikelfenster unter „Änderung beantragen → Foto" ein
+neues Foto des Materials oder des Lagerorts vorschlagen
+(`POST /api/transactions/photo`). Das bisherige Foto bleibt, bis ein Admin den
+Antrag freigibt; bei einer Ablehnung wird das vorgeschlagene Foto gelöscht.
+
+### Detailansicht für Admins
+
+Unter **Anfragen** öffnet ein Klick auf einen Antrag die Detailansicht
+(`GET /api/transactions/{id}`): Material, Artikelnummer, Lagerort,
+Antragsteller mit Kontakt, Notiz, der Bestand vorher/nachher bzw. bei
+Foto-Anträgen das bisherige und das vorgeschlagene Foto nebeneinander.
+
+## Verlauf
+
+Admins sehen unter **Anfragen → Verlauf** (`GET /api/admin/log`), wer wann was
+im Archiv getan hat: Material angelegt/bearbeitet/gelöscht, Anträge gestellt,
+freigegeben und abgelehnt (mit Bestand vorher → nachher), Kategorien, Events
+und Reservierungen, Mitglieder (Registrierung, Freigabe, Rollen, Entfernen,
+Passwort-Reset). Der Verlauf lässt sich durchsuchen und nach Bereich filtern.
+Einträge werden als Text gespeichert und bleiben lesbar, auch wenn das
+Material oder das Mitglied später gelöscht wird. Der Verlauf beginnt mit
+diesem Update – frühere Vorgänge sind nicht enthalten.
+
 ## Events & Reservationen
 
 - `POST /api/events` – eigenes Event anlegen (Name, Zeitraum, Beschreibung).

@@ -1,6 +1,8 @@
 export type UserRole = "ADMIN" | "USER" | "MANAGER";
 
-export type TransactionType = "ADD" | "USE";
+export type TransactionType = "ADD" | "USE" | "PHOTO";
+/** Welches Foto ein Foto-Antrag ersetzen soll: das des Materials oder das des Lagerorts. */
+export type PhotoTarget = "ITEM" | "LOCATION";
 export type TransactionStatus = "PENDING" | "COMPLETED" | "CANCELED";
 export type StockPrecision = "EXACT" | "APPROXIMATE";
 export type ParticipantStatus = "PENDING" | "APPROVED";
@@ -44,6 +46,11 @@ export interface TransactionDTO {
   transactionStatus: TransactionStatus;
   note?: string;
   description?: string;
+  /** Nur bei Foto-Anträgen. */
+  proposedImageUrl?: string;
+  photoTarget?: PhotoTarget;
+  /** Wer den Antrag freigegeben oder abgelehnt hat. */
+  decidedByName?: string;
   updatedAt?: string;
   createdAt: string;
   item?: ItemDTO;

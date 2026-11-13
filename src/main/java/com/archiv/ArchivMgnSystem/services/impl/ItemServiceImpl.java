@@ -14,6 +14,7 @@ import com.archiv.ArchivMgnSystem.repositories.CounterRepository;
 import com.archiv.ArchivMgnSystem.repositories.ItemRepository;
 import com.archiv.ArchivMgnSystem.repositories.ReservationRepository;
 import com.archiv.ArchivMgnSystem.repositories.TransactionRepository;
+import com.archiv.ArchivMgnSystem.services.ActivityLogService;
 import com.archiv.ArchivMgnSystem.services.ItemService;
 import com.archiv.ArchivMgnSystem.specification.ItemFilter;
 import lombok.RequiredArgsConstructor;
@@ -69,6 +70,7 @@ public class ItemServiceImpl implements ItemService {
     private final TransactionRepository transactionRepository;
     private final ReservationRepository reservationRepository;
     private final CounterRepository counterRepository;
+    private final ActivityLogService activityLog;
 
     @Value("${app.upload-dir:${user.dir}/uploads/items}")
     private String uploadDir;
@@ -128,6 +130,9 @@ public class ItemServiceImpl implements ItemService {
             throw e;
         }
 
+        activityLog.record(ActivityLogService.MATERIAL, "Material \"" + itemToSave.getName() + "\" (" + itemToSave.getSku()
+                + ") angelegt, Bestand " + itemToSave.getStockQuantity() + ", Lagerort " + itemToSave.getPlace());
+
         return Response.builder()
                 .message("Item successfully saved")
                 .build();
@@ -158,6 +163,7 @@ public class ItemServiceImpl implements ItemService {
                 .orElseThrow(() -> new NotFoundException("Item not found"));
 
         // Ersetzte Fotos werden nach erfolgreichem Speichern vom Server entfernt.
+        String nameBefore = existingItem.getName();
         List<String> replacedImages = new ArrayList<>();
         List<String> newImages = new ArrayList<>();
         try {
@@ -171,8 +177,18 @@ public class ItemServiceImpl implements ItemService {
                 existingItem.setLocationImageUrl(saveImage(locationImageFile));
                 newImages.add(existingItem.getLocationImageUrl());
             }
-            applyChanges(existingItem, itemDTO);
+            List<String> changes = applyChanges(existingItem, itemDTO);
+            if (imageFile != null && !imageFile.isEmpty()) {
+                changes.add("Foto ersetzt");
+            }
+            if (locationImageFile != null && !locationImageFile.isEmpty()) {
+                changes.add("Lagerort-Foto ersetzt");
+            }
             itemRepository.saveAndFlush(existingItem);
+            if (!changes.isEmpty()) {
+                activityLog.record(ActivityLogService.MATERIAL, "Material \"" + nameBefore + "\" (" + existingItem.getSku()
+                        + ") bearbeitet: " + String.join(", ", changes));
+            }
         } catch (RuntimeException e) {
             newImages.forEach(this::deleteImageFiles);
             throw e;
@@ -185,33 +201,47 @@ public class ItemServiceImpl implements ItemService {
                 .build();
     }
 
-    private void applyChanges(Item existingItem, ItemDTO itemDTO) {
-        if (itemDTO.getCategoryId() > 0) {
+    /** Übernimmt die Änderungen und gibt zurück, was sich geändert hat (für den Verlauf). */
+    private List<String> applyChanges(Item existingItem, ItemDTO itemDTO) {
+        List<String> changes = new ArrayList<>();
+
+        if (itemDTO.getCategoryId() > 0
+                && (existingItem.getCategory() == null || !existingItem.getCategory().getId().equals(itemDTO.getCategoryId()))) {
             Category category = categoryRepository.findById(itemDTO.getCategoryId())
                     .orElseThrow(() -> new NotFoundException("Category not found"));
+            changes.add("Kategorie " + (existingItem.getCategory() == null ? "–" : existingItem.getCategory().getName())
+                    + " → " + category.getName());
             existingItem.setCategory(category);
         }
 
-        if (itemDTO.getName() != null && !itemDTO.getName().isBlank()) {
+        if (itemDTO.getName() != null && !itemDTO.getName().isBlank() && !itemDTO.getName().equals(existingItem.getName())) {
+            changes.add("Name → " + itemDTO.getName());
             existingItem.setName(itemDTO.getName());
         }
 
-        if (itemDTO.getDescription() != null && !itemDTO.getDescription().isBlank()) {
+        if (itemDTO.getDescription() != null && !itemDTO.getDescription().isBlank()
+                && !itemDTO.getDescription().equals(existingItem.getDescription())) {
+            changes.add("Beschreibung geändert");
             existingItem.setDescription(itemDTO.getDescription());
         }
 
-        if (itemDTO.getPlace() != null && !itemDTO.getPlace().isBlank()) {
+        if (itemDTO.getPlace() != null && !itemDTO.getPlace().isBlank() && !itemDTO.getPlace().equals(existingItem.getPlace())) {
+            changes.add("Lagerort " + existingItem.getPlace() + " → " + itemDTO.getPlace());
             existingItem.setPlace(itemDTO.getPlace());
         }
 
-        if (itemDTO.getStockQuantity() != null && itemDTO.getStockQuantity() >= 0) {
+        if (itemDTO.getStockQuantity() != null && itemDTO.getStockQuantity() >= 0
+                && !itemDTO.getStockQuantity().equals(existingItem.getStockQuantity())) {
+            changes.add("Bestand " + existingItem.getStockQuantity() + " → " + itemDTO.getStockQuantity());
             existingItem.setStockQuantity(itemDTO.getStockQuantity());
         }
 
-        if (itemDTO.getStockPrecision() != null) {
+        if (itemDTO.getStockPrecision() != null && itemDTO.getStockPrecision() != existingItem.getStockPrecision()) {
+            changes.add(itemDTO.getStockPrecision() == StockPrecision.EXACT ? "Bestand genau gezählt" : "Bestand ungefähr");
             existingItem.setStockPrecision(itemDTO.getStockPrecision());
         }
 
+        return changes;
     }
 
     @Override
@@ -252,6 +282,10 @@ public class ItemServiceImpl implements ItemService {
         Item item = itemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Item not found"));
         deleteImagesAfterCommit(Arrays.asList(item.getImageUrl(), item.getLocationImageUrl()));
+        // auch die Fotos aus Foto-Anträgen zu diesem Material
+        deleteImagesAfterCommit(transactionRepository.findProposedImageUrlsByItemId(id));
+        activityLog.record(ActivityLogService.MATERIAL, "Material \"" + item.getName() + "\" (" + item.getSku()
+                + ") gelöscht, letzter Bestand " + item.getStockQuantity());
 
         // Item hat Fremdschlüssel in transactions (Bestandshistorie) und
         // reservations (Event-Reservierungen) - ohne Item hat weder das eine
@@ -423,6 +457,11 @@ public class ItemServiceImpl implements ItemService {
         } catch (IOException ignored) {
             // liegengebliebene Temp-Datei ist harmlos
         }
+    }
+
+    @Override
+    public String storeImage(MultipartFile imageFile) {
+        return saveImage(imageFile);
     }
 
     private String saveImage(MultipartFile imageFile) {

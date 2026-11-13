@@ -6,7 +6,8 @@ export function describeRequest(t: TransactionDTO, unknownItem = "Unbekanntes Ma
   if (t.transactionType === "PHOTO") {
     return `${t.photoTarget === "LOCATION" ? "Neues Lagerort-Foto" : "Neues Foto"} für ${name}`;
   }
-  return `${t.transactionType === "ADD" ? "+" : "−"} ${t.totalItems} × ${name}`;
+  const photo = t.proposedImageUrl ? (t.photoTarget === "LOCATION" ? ", mit neuem Lagerort-Foto" : ", mit neuem Foto") : "";
+  return `${t.transactionType === "ADD" ? "+" : "−"} ${t.totalItems} × ${name}${photo}`;
 }
 
 export function formatDateTime(value: string): string {

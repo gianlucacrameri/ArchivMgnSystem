@@ -34,6 +34,8 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
 
   const item = detail.item;
   const isPhoto = detail.transactionType === "PHOTO";
+  // Auch ein Bestandsantrag kann ein neues Foto mitbringen.
+  const hasPhoto = !!detail.proposedImageUrl;
   const isLocation = detail.photoTarget === "LOCATION";
   const currentImageUrl = isLocation ? item?.locationImageUrl : item?.imageUrl;
   const stock = item?.stockQuantity ?? 0;
@@ -43,7 +45,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
   return (
     <Modal title={describeRequest(detail)} onClose={onClose}>
       <div className="stacked-form">
-        {isPhoto && (
+        {hasPhoto && (
           <div className="photo-compare">
             <figure>
               <figcaption>Bisher</figcaption>
@@ -70,7 +72,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
           </div>
         )}
 
-        {!isPhoto && item?.imageUrl && (
+        {!hasPhoto && item?.imageUrl && (
           <div className="item-detail__image">
             <AuthenticatedImage src={item.imageUrl} alt={item.name} size="medium" className="item-detail__img" />
           </div>
@@ -89,12 +91,13 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
             <dt>Lagerort</dt>
             <dd>{item?.place ?? "–"}</dd>
           </div>
-          {isPhoto ? (
+          {(isPhoto || hasPhoto) && (
             <div>
-              <dt>Betrifft</dt>
-              <dd>{isLocation ? "Foto des Lagerorts" : "Foto des Materials"}</dd>
+              <dt>Neues Foto für</dt>
+              <dd>{isLocation ? "Lagerort" : "Material"}</dd>
             </div>
-          ) : (
+          )}
+          {!isPhoto && (
             <div>
               <dt>Bestand</dt>
               <dd>

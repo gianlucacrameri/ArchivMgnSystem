@@ -150,10 +150,14 @@ Die Vorschaubilder erzeugt das Backend danach beim ersten Aufruf selbst neu.
 
 ### Foto-Anträge
 
-Mitglieder können im Artikelfenster unter „Änderung beantragen → Foto" ein
-neues Foto des Materials oder des Lagerorts vorschlagen
-(`POST /api/transactions/photo`). Das bisherige Foto bleibt, bis ein Admin den
-Antrag freigibt; bei einer Ablehnung wird das vorgeschlagene Foto gelöscht.
+Im Artikelfenster unter „Änderung beantragen" kann ein Mitglied in **einem**
+Antrag den Bestand ändern, ein neues Foto des Materials oder des Lagerorts
+vorschlagen oder beides zusammen (`POST /api/transactions/request`,
+`multipart/form-data` mit `itemId`, `type` = `ADD`/`USE`/`PHOTO`, `quantity`,
+`imageFile`, `target` = `ITEM`/`LOCATION`, `note`). Bestand und Foto ändern
+sich erst mit der Freigabe durch einen Admin – und nur gemeinsam: Lässt sich
+der Bestand nicht anpassen, wird auch das Foto nicht ersetzt. Bei einer
+Ablehnung wird das vorgeschlagene Foto gelöscht.
 
 ### Detailansicht für Admins
 

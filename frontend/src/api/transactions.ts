@@ -1,27 +1,30 @@
 import { apiGet, apiSend, apiSendForm } from "./client";
-import type { PhotoTarget, TransactionDTO, TransactionStatus } from "../types";
+import type { PhotoTarget, TransactionDTO, TransactionStatus, TransactionType } from "../types";
 import { prepareImageForUpload } from "../utils/resizeImage";
 
-export async function requestTransaction(
-  type: "add" | "use",
-  input: { itemId: number; quantity: number; description?: string; note?: string }
-): Promise<void> {
-  await apiSend("POST", `/api/transactions/${type}`, input);
-}
-
-/** Schlägt ein neues Foto vor; es ersetzt das bisherige erst nach Freigabe durch einen Admin. */
-export async function requestPhoto(input: {
+/**
+ * Reicht einen Antrag für ein Material ein: Bestand ändern (ADD/USE mit Menge),
+ * ein neues Foto vorschlagen oder beides zusammen. "PHOTO" = nur ein Foto.
+ * Wirksam wird alles erst nach Freigabe durch einen Admin.
+ */
+export async function submitRequest(input: {
   itemId: number;
-  target: PhotoTarget;
-  imageFile: File;
+  type: TransactionType;
+  quantity?: number;
+  imageFile?: File | null;
+  target?: PhotoTarget;
   note?: string;
 }): Promise<void> {
   const form = new FormData();
   form.set("itemId", String(input.itemId));
-  form.set("target", input.target);
-  form.set("imageFile", await prepareImageForUpload(input.imageFile));
+  form.set("type", input.type);
+  if (input.type !== "PHOTO" && input.quantity !== undefined) form.set("quantity", String(input.quantity));
+  if (input.imageFile) {
+    form.set("imageFile", await prepareImageForUpload(input.imageFile));
+    form.set("target", input.target ?? "ITEM");
+  }
   if (input.note) form.set("note", input.note);
-  await apiSendForm("POST", "/api/transactions/photo", form);
+  await apiSendForm("POST", "/api/transactions/request", form);
 }
 
 /** Ein einzelner Antrag mit allen Angaben (nur für Admins). */

@@ -4,6 +4,7 @@ import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.dtos.TransactionRequest;
 import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
+import com.archiv.ArchivMgnSystem.enums.TransactionType;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface TransactionService {
@@ -16,6 +17,8 @@ public interface TransactionService {
     Response getMyTransactions();
 
     Response requestPhoto(Long itemId, PhotoTarget target, MultipartFile imageFile, String note);
+
+    Response request(Long itemId, TransactionType type, Integer quantity, PhotoTarget target, MultipartFile imageFile, String note);
 
     Response getAllTransactionById(Long id);
 

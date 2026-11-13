@@ -4,6 +4,7 @@ import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.dtos.TransactionRequest;
 import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
+import com.archiv.ArchivMgnSystem.enums.TransactionType;
 import org.springframework.web.multipart.MultipartFile;
 import com.archiv.ArchivMgnSystem.services.TransactionService;
 import jakarta.validation.Valid;
@@ -38,6 +39,21 @@ public class TransactionController {
             @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
             @RequestParam(value = "note", required = false) String note) {
         return ResponseEntity.ok(transactionService.requestPhoto(itemId, target, imageFile, note));
+    }
+
+    /**
+     * Ein Antrag für ein Material: Bestand ändern (type ADD/USE mit quantity),
+     * ein neues Foto vorschlagen (imageFile) oder beides zusammen.
+     */
+    @PostMapping("/request")
+    public ResponseEntity<Response> request(
+            @RequestParam("itemId") Long itemId,
+            @RequestParam(value = "type", required = false) TransactionType type,
+            @RequestParam(value = "quantity", required = false) Integer quantity,
+            @RequestParam(value = "target", required = false) PhotoTarget target,
+            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
+            @RequestParam(value = "note", required = false) String note) {
+        return ResponseEntity.ok(transactionService.request(itemId, type, quantity, target, imageFile, note));
     }
 
     @GetMapping("/all")

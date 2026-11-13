@@ -1,6 +1,7 @@
 package com.archiv.ArchivMgnSystem.models;
 
 
+import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
 import com.archiv.ArchivMgnSystem.enums.TransactionType;
 import jakarta.persistence.*;
@@ -9,6 +10,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -28,7 +32,10 @@ public class Transaction {
     private Integer totalItems;
 
 
+    // Als Textfeld gespeichert, damit neue Arten ohne Schemaänderung möglich sind.
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 20)
     private TransactionType transactionType;
 
     @Enumerated(EnumType.STRING)
@@ -36,6 +43,18 @@ public class Transaction {
 
     private String note;
     private String description;
+
+    /** Nur bei Foto-Anträgen: das vorgeschlagene Foto und welches es ersetzen soll. */
+    private String proposedImageUrl;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 20)
+    private PhotoTarget photoTarget;
+
+    /** Wer den Antrag freigegeben oder abgelehnt hat (als Text, bleibt auch nach Löschen des Kontos). */
+    private String decidedByName;
+
     private LocalDateTime updatedAt;
     private final LocalDateTime createdAt = LocalDateTime.now();
 

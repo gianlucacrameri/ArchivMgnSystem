@@ -1,25 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import type { TransactionDTO } from "../types";
 import { fetchTransactions, updateTransactionStatus } from "../api/transactions";
 import { ApiError } from "../api/client";
 import { notifyAdminCountsChanged } from "../api/admin";
 import { useToast } from "../context/ToastContext";
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("de-CH", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import RequestDetailModal from "../components/RequestDetailModal";
+import { describeRequest, formatDateTime } from "../utils/describeRequest";
 
 export default function RequestsPage() {
   const { showError, showSuccess } = useToast();
   const [pending, setPending] = useState<TransactionDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<TransactionDTO | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,6 +37,7 @@ export default function RequestsPage() {
       await updateTransactionStatus(id, status);
       showSuccess(status === "COMPLETED" ? "Antrag freigegeben" : "Antrag abgelehnt");
       setPending((prev) => prev.filter((t) => t.id !== id));
+      setSelected(null);
       notifyAdminCountsChanged();
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Aktion fehlgeschlagen");
@@ -54,7 +49,10 @@ export default function RequestsPage() {
   return (
     <div className="page">
       <div className="page__header">
-        <h1>Offene Bestandsänderungen</h1>
+        <h1>Offene Anfragen</h1>
+        <Link to="/history" className="btn btn--secondary">
+          Verlauf
+        </Link>
       </div>
 
       {loading && <p className="hint">Lädt…</p>}
@@ -63,16 +61,16 @@ export default function RequestsPage() {
       <ul className="request-list">
         {pending.map((t) => (
           <li key={t.id} className="request-card">
-            <div className="request-card__info">
-              <strong>
-                {t.transactionType === "ADD" ? "+ " : "− "}
-                {t.totalItems} × {t.item?.name ?? "Unbekanntes Material"}
-              </strong>
-              <span className="event-card__meta">
-                Beantragt von {t.user?.username ?? "ehemaligem Mitglied"} am {formatDateTime(t.createdAt)}
+            <button type="button" className="request-card__open" onClick={() => setSelected(t)}>
+              <span className="request-card__info">
+                <strong>{describeRequest(t)}</strong>
+                <span className="event-card__meta">
+                  Beantragt von {t.user?.username ?? "ehemaligem Mitglied"} am {formatDateTime(t.createdAt)}
+                </span>
+                {t.note && <span className="event-card__meta">Notiz: {t.note}</span>}
+                <span className="request-card__more">Details ansehen</span>
               </span>
-              {t.note && <span className="event-card__meta">Notiz: {t.note}</span>}
-            </div>
+            </button>
             <div className="button-row">
               <button
                 type="button"
@@ -94,6 +92,15 @@ export default function RequestsPage() {
           </li>
         ))}
       </ul>
+
+      {selected && (
+        <RequestDetailModal
+          request={selected}
+          processing={processingId === selected.id}
+          onDecide={(status) => decide(selected.id, status)}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }

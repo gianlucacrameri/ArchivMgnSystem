@@ -20,6 +20,13 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     long countByTransactionStatus(TransactionStatus transactionStatus);
 
+    /** Fotos aus Foto-Anträgen zu einem Material - müssen mit dem Material gelöscht werden. */
+    @Query("SELECT t.proposedImageUrl FROM Transaction t WHERE t.item.id = :itemId AND t.proposedImageUrl IS NOT NULL")
+    List<String> findProposedImageUrlsByItemId(@Param("itemId") long itemId);
+
+    @Query("SELECT t.proposedImageUrl FROM Transaction t WHERE t.item.category.id = :categoryId AND t.proposedImageUrl IS NOT NULL")
+    List<String> findProposedImageUrlsByCategoryId(@Param("categoryId") Long categoryId);
+
     @EntityGraph(attributePaths = "item")
     List<Transaction> findByUserIdOrderByIdDesc(Long userId, Pageable pageable);
 

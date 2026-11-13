@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { TransactionDTO, TransactionStatus } from "../types";
 import { fetchMyTransactions } from "../api/transactions";
 import { ApiError } from "../api/client";
+import { describeRequest } from "../utils/describeRequest";
 import { useToast } from "../context/ToastContext";
 
 function formatDateTime(value: string): string {
@@ -41,7 +42,7 @@ export default function MyRequestsPage() {
       {loading && <p className="hint">Lädt…</p>}
       {!loading && requests.length === 0 && (
         <p className="hint">
-          Du hast noch keine Bestandsänderung beantragt. Öffne im Archiv ein Material, um eine zu beantragen.
+          Du hast noch nichts beantragt. Öffne im Archiv ein Material, um eine Bestandsänderung oder ein neues Foto zu beantragen.
         </p>
       )}
 
@@ -51,10 +52,7 @@ export default function MyRequestsPage() {
           return (
             <li key={t.id} className="request-card">
               <div className="request-card__info">
-                <strong>
-                  {t.transactionType === "ADD" ? "+ " : "− "}
-                  {t.totalItems} × {t.item?.name ?? "Gelöschtes Material"}
-                </strong>
+                <strong>{describeRequest(t, "gelöschtes Material")}</strong>
                 <span className="event-card__meta">Beantragt am {formatDateTime(t.createdAt)}</span>
                 {t.note && <span className="event-card__meta">Notiz: {t.note}</span>}
               </div>

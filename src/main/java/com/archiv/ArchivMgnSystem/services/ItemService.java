@@ -21,6 +21,9 @@ public interface ItemService {
 
     Resource loadImage(String filename, ImageSize size);
 
+    /** Prüft und speichert ein hochgeladenes Foto und gibt dessen abrufbare Adresse zurück. */
+    String storeImage(MultipartFile imageFile);
+
     /** Löscht die Fotodateien (samt Vorschaubildern), sobald die laufende Transaktion erfolgreich war. */
     void deleteImagesAfterCommit(Collection<String> imageUrls);
 

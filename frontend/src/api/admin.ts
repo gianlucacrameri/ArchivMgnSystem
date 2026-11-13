@@ -18,6 +18,26 @@ export interface BackupStatus {
   lastErrorAt?: string;
 }
 
+export interface ActivityLogEntry {
+  id: number;
+  createdAt: string;
+  category: string;
+  actorName: string;
+  message: string;
+}
+
+export async function fetchActivityLog(params: {
+  page: number;
+  size: number;
+  category?: string;
+  search?: string;
+}): Promise<{ entries: ActivityLogEntry[]; totalElements: number }> {
+  const query = new URLSearchParams({ page: String(params.page), size: String(params.size) });
+  if (params.category) query.set("category", params.category);
+  if (params.search) query.set("search", params.search);
+  return apiGetRaw(`/api/admin/log?${query.toString()}`);
+}
+
 export async function fetchAdminOverview(): Promise<AdminOverview> {
   return apiGetRaw<AdminOverview>("/api/admin/overview");
 }

@@ -13,6 +13,7 @@ import ProfilePage from "./pages/ProfilePage";
 import MembersPage from "./pages/MembersPage";
 import MyRequestsPage from "./pages/MyRequestsPage";
 import PrivacyPage from "./pages/PrivacyPage";
+import HistoryPage from "./pages/HistoryPage";
 
 export default function App() {
   return (
@@ -36,6 +37,14 @@ export default function App() {
               <Route path="/events/:id" element={<EventDetailPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/my-requests" element={<MyRequestsPage />} />
+              <Route
+                path="/history"
+                element={
+                  <AdminRoute>
+                    <HistoryPage />
+                  </AdminRoute>
+                }
+              />
               <Route
                 path="/members"
                 element={

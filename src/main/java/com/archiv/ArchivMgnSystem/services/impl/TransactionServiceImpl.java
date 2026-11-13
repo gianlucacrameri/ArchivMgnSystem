@@ -3,6 +3,7 @@ package com.archiv.ArchivMgnSystem.services.impl;
 import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.dtos.TransactionDTO;
 import com.archiv.ArchivMgnSystem.dtos.TransactionRequest;
+import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
 import com.archiv.ArchivMgnSystem.enums.TransactionType;
 import com.archiv.ArchivMgnSystem.exceptions.NotFoundException;
@@ -11,6 +12,8 @@ import com.archiv.ArchivMgnSystem.models.Transaction;
 import com.archiv.ArchivMgnSystem.models.User;
 import com.archiv.ArchivMgnSystem.repositories.ItemRepository;
 import com.archiv.ArchivMgnSystem.repositories.TransactionRepository;
+import com.archiv.ArchivMgnSystem.services.ActivityLogService;
+import com.archiv.ArchivMgnSystem.services.ItemService;
 import com.archiv.ArchivMgnSystem.services.TransactionService;
 import com.archiv.ArchivMgnSystem.services.UserService;
 import com.archiv.ArchivMgnSystem.specification.TransactionFilter;
@@ -24,8 +27,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -38,6 +44,8 @@ public class TransactionServiceImpl implements TransactionService {
     private final UserService userService;
     private final ModelMapper modelMapper;
     private final TransactionRepository transactionRepository;
+    private final ItemService itemService;
+    private final ActivityLogService activityLog;
 
     private static final int MAX_OWN_TRANSACTIONS = 100;
 
@@ -63,6 +71,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
 
         transactionRepository.save(transaction);
+        activityLog.record(ActivityLogService.STOCK, "Antrag gestellt: " + describe(transaction));
         return Response.builder()
                 .status(200)
                 .message("Bestandsänderung beantragt, wartet auf Freigabe durch einen Admin")
@@ -96,6 +105,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
 
         transactionRepository.save(transaction);
+        activityLog.record(ActivityLogService.STOCK, "Antrag gestellt: " + describe(transaction));
         return Response.builder()
                 .status(200)
                 .message("Bestandsänderung beantragt, wartet auf Freigabe durch einen Admin")
@@ -189,6 +199,54 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    public Response requestPhoto(Long itemId, PhotoTarget target, MultipartFile imageFile, String note) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Item Not Found"));
+        if (imageFile == null || imageFile.isEmpty()) {
+            throw new IllegalArgumentException("Bitte ein Foto auswählen");
+        }
+
+        User user = userService.getCurrentLoggedInUser();
+        String imageUrl = itemService.storeImage(imageFile);
+
+        Transaction transaction = Transaction.builder()
+                .transactionType(TransactionType.PHOTO)
+                .transactionStatus(TransactionStatus.PENDING)
+                .item(item)
+                .user(user)
+                .totalItems(0)
+                .photoTarget(target != null ? target : PhotoTarget.ITEM)
+                .proposedImageUrl(imageUrl)
+                .note(note)
+                .build();
+        try {
+            transactionRepository.save(transaction);
+        } catch (RuntimeException e) {
+            // Antrag nicht gespeichert - das Foto würde sonst ohne Antrag liegen bleiben.
+            itemService.deleteImagesAfterCommit(List.of(imageUrl));
+            throw e;
+        }
+        activityLog.record(ActivityLogService.PHOTO, "Antrag gestellt: " + describe(transaction));
+
+        return Response.builder()
+                .status(200)
+                .message("Neues Foto beantragt, wartet auf Freigabe durch einen Admin")
+                .build();
+    }
+
+    /** Kurzbeschreibung eines Antrags für den Verlauf, z.B. "+ 3 × Fussball". */
+    private String describe(Transaction transaction) {
+        String itemName = transaction.getItem() != null ? transaction.getItem().getName() : "?";
+        return switch (transaction.getTransactionType()) {
+            case ADD -> "+ " + transaction.getTotalItems() + " × \"" + itemName + "\"";
+            case USE -> "− " + transaction.getTotalItems() + " × \"" + itemName + "\"";
+            case PHOTO -> "neues " + (transaction.getPhotoTarget() == PhotoTarget.LOCATION ? "Lagerort-Foto" : "Foto")
+                    + " für \"" + itemName + "\"";
+        };
+    }
+
+    @Override
+    @Transactional
     public Response updateTransactionStatus(Long transactionId, TransactionStatus status) {
         Transaction existingTransaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
@@ -196,27 +254,55 @@ public class TransactionServiceImpl implements TransactionService {
         if (existingTransaction.getTransactionStatus() != TransactionStatus.PENDING) {
             throw new IllegalStateException("This request was already processed");
         }
+        if (status != TransactionStatus.COMPLETED && status != TransactionStatus.CANCELED) {
+            throw new IllegalArgumentException("Status must be either COMPLETED or CANCELED");
+        }
 
-        if (status == TransactionStatus.COMPLETED) {
-            Item item = existingTransaction.getItem();
+        Item item = existingTransaction.getItem();
+        boolean isPhoto = existingTransaction.getTransactionType() == TransactionType.PHOTO;
+        String outcome = "";
+
+        if (status == TransactionStatus.COMPLETED && isPhoto) {
+            // Das vorgeschlagene Foto wird zum Foto des Materials, das bisherige entfällt.
+            String proposed = existingTransaction.getProposedImageUrl();
+            if (existingTransaction.getPhotoTarget() == PhotoTarget.LOCATION) {
+                itemService.deleteImagesAfterCommit(Arrays.asList(item.getLocationImageUrl()));
+                item.setLocationImageUrl(proposed);
+            } else {
+                itemService.deleteImagesAfterCommit(Arrays.asList(item.getImageUrl()));
+                item.setImageUrl(proposed);
+            }
+            itemRepository.save(item);
+        } else if (status == TransactionStatus.COMPLETED) {
             int delta = existingTransaction.getTransactionType() == TransactionType.ADD
                     ? existingTransaction.getTotalItems()
                     : -existingTransaction.getTotalItems();
 
-            int newQuantity = item.getStockQuantity() + delta;
+            int oldQuantity = item.getStockQuantity();
+            int newQuantity = oldQuantity + delta;
             if (newQuantity < 0) {
                 throw new IllegalArgumentException("Not enough stock available to approve this request");
             }
             item.setStockQuantity(newQuantity);
             itemRepository.save(item);
-        } else if (status != TransactionStatus.CANCELED) {
-            throw new IllegalArgumentException("Status must be either COMPLETED or CANCELED");
+            outcome = ", Bestand " + oldQuantity + " → " + newQuantity;
+        } else if (isPhoto) {
+            // Abgelehnt: das vorgeschlagene Foto wird nicht mehr gebraucht.
+            itemService.deleteImagesAfterCommit(Arrays.asList(existingTransaction.getProposedImageUrl()));
+            existingTransaction.setProposedImageUrl(null);
         }
 
+        User decider = userService.getCurrentLoggedInUser();
         existingTransaction.setTransactionStatus(status);
+        existingTransaction.setDecidedByName(decider.getUsername());
         existingTransaction.setUpdatedAt(LocalDateTime.now());
-
         transactionRepository.save(existingTransaction);
+
+        String requester = existingTransaction.getUser() != null
+                ? existingTransaction.getUser().getUsername() : "ehemaligem Mitglied";
+        activityLog.record(isPhoto ? ActivityLogService.PHOTO : ActivityLogService.STOCK,
+                "Antrag " + (status == TransactionStatus.COMPLETED ? "freigegeben" : "abgelehnt") + ": "
+                        + describe(existingTransaction) + " (beantragt von " + requester + ")" + outcome);
 
         return Response.builder()
                 .status(200)

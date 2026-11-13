@@ -55,6 +55,19 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
   unauthorizedHandler = handler;
 }
 
+/**
+ * Kommt gar keine Antwort (Backend läuft nicht, falsche Adresse, oder der
+ * Browser blockiert den Zugriff), soll das auch so dastehen - sonst sieht
+ * man nur ein leeres Archiv und weiss nicht, warum.
+ */
+async function request(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new ApiError(`Der Server ist nicht erreichbar (${API_BASE_URL}). Läuft das Backend?`, 0);
+  }
+}
+
 function authHeaders(): Record<string, string> {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -83,7 +96,7 @@ async function parseResponse(res: Response): Promise<ApiResponse> {
 }
 
 export async function apiGet(path: string): Promise<ApiResponse> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await request(`${API_BASE_URL}${path}`, {
     headers: { ...authHeaders() },
   });
   return parseResponse(res);
@@ -91,7 +104,7 @@ export async function apiGet(path: string): Promise<ApiResponse> {
 
 /** Für Endpunkte, die nicht die einheitliche ApiResponse-Hülle verwenden. */
 export async function apiGetRaw<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await request(`${API_BASE_URL}${path}`, {
     headers: { ...authHeaders() },
   });
   if (res.status === 401 && unauthorizedHandler) {
@@ -105,7 +118,7 @@ export async function apiGetRaw<T>(path: string): Promise<T> {
 
 /** POST für Endpunkte, die nicht die einheitliche ApiResponse-Hülle verwenden. */
 export async function apiPostRaw<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await request(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: { ...authHeaders() },
   });
@@ -129,7 +142,7 @@ export async function apiSend(
   path: string,
   body?: unknown
 ): Promise<ApiResponse> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await request(`${API_BASE_URL}${path}`, {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -145,7 +158,7 @@ export async function apiSendForm(
   path: string,
   formData: FormData
 ): Promise<ApiResponse> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await request(`${API_BASE_URL}${path}`, {
     method,
     headers: { ...authHeaders() },
     body: formData,
@@ -161,7 +174,7 @@ export async function apiSendForm(
  */
 export async function fetchAuthorizedImage(imageUrl: string): Promise<string> {
   const url = imageUrl.startsWith("http") ? imageUrl : `${API_BASE_URL}${imageUrl}`;
-  const res = await fetch(url, { headers: { ...authHeaders() } });
+  const res = await request(url, { headers: { ...authHeaders() } });
   if (!res.ok) {
     throw new ApiError("Bild konnte nicht geladen werden", res.status);
   }

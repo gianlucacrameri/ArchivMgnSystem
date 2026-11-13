@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
-import type { CategoryDTO, ItemDTO, StockPrecision, TransactionType } from "../types";
+import type { CategoryDTO, ItemDTO, PhotoTarget, StockPrecision, TransactionType } from "../types";
 import Modal from "./Modal";
 import NumberField from "./NumberField";
 import AuthenticatedImage from "./AuthenticatedImage";
-import { requestTransaction } from "../api/transactions";
+import { requestPhoto, requestTransaction } from "../api/transactions";
 import { deleteItem, updateItem } from "../api/items";
 import { ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -23,6 +23,8 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
   const [type, setType] = useState<TransactionType>("ADD");
   const [quantity, setQuantity] = useState<number | "">(1);
   const [note, setNote] = useState("");
+  const [photoTarget, setPhotoTarget] = useState<PhotoTarget>("ITEM");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [editMode, setEditMode] = useState(false);
@@ -37,13 +39,21 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
 
   async function submitRequest(e: FormEvent) {
     e.preventDefault();
+    if (type === "PHOTO" && !photoFile) {
+      showError("Bitte ein Foto auswählen");
+      return;
+    }
     setSubmitting(true);
     try {
-      await requestTransaction(type === "ADD" ? "add" : "use", {
-        itemId: item.id,
-        quantity: quantity === "" ? 1 : quantity,
-        note: note || undefined,
-      });
+      if (type === "PHOTO" && photoFile) {
+        await requestPhoto({ itemId: item.id, target: photoTarget, imageFile: photoFile, note: note || undefined });
+      } else {
+        await requestTransaction(type === "ADD" ? "add" : "use", {
+          itemId: item.id,
+          quantity: quantity === "" ? 1 : quantity,
+          note: note || undefined,
+        });
+      }
       showSuccess("Antrag wurde eingereicht und wartet auf Freigabe durch einen Admin.");
       onClose();
     } catch (err) {
@@ -127,10 +137,10 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
 
           <hr className="divider" />
           <br />
-          <h3 className="section-title">Bestand anpassen</h3>
+          <h3 className="section-title">Änderung beantragen</h3>
           <br />
           <form onSubmit={submitRequest} className="stacked-form">
-            <div className="segmented">
+            <div className="segmented segmented--compact">
               <button
                 type="button"
                 className={`segmented__option ${type === "ADD" ? "is-active" : ""}`}
@@ -145,12 +155,54 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
               >
                 − Verbrauchen
               </button>
+              <button
+                type="button"
+                className={`segmented__option ${type === "PHOTO" ? "is-active" : ""}`}
+                onClick={() => setType("PHOTO")}
+              >
+                Foto
+              </button>
             </div>
 
-            <label className="field">
-              <span>Menge</span>
-              <NumberField value={quantity} onChange={setQuantity} min={1} required fallback={1} />
-            </label>
+            {type !== "PHOTO" && (
+              <label className="field">
+                <span>Menge</span>
+                <NumberField value={quantity} onChange={setQuantity} min={1} required fallback={1} />
+              </label>
+            )}
+
+            {type === "PHOTO" && (
+              <>
+                <div className="field">
+                  <span>Welches Foto soll ersetzt werden?</span>
+                  <div className="segmented">
+                    <button
+                      type="button"
+                      className={`segmented__option ${photoTarget === "ITEM" ? "is-active" : ""}`}
+                      onClick={() => setPhotoTarget("ITEM")}
+                    >
+                      Material
+                    </button>
+                    <button
+                      type="button"
+                      className={`segmented__option ${photoTarget === "LOCATION" ? "is-active" : ""}`}
+                      onClick={() => setPhotoTarget("LOCATION")}
+                    >
+                      Lagerort
+                    </button>
+                  </div>
+                </div>
+                <label className="field">
+                  <span>Neues Foto</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    required
+                    onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </>
+            )}
 
             <label className="field">
               <span>Notiz (optional)</span>
@@ -160,7 +212,11 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
             <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
               {submitting ? "Wird gesendet…" : "Antrag einreichen"}
             </button>
-            <p className="hint">Ein Admin muss diese Bestandsänderung noch freigeben.</p>
+            <p className="hint">
+              {type === "PHOTO"
+                ? "Das neue Foto ersetzt das bisherige, sobald ein Admin es freigegeben hat."
+                : "Ein Admin muss diese Bestandsänderung noch freigeben."}
+            </p>
           </form>
 
           {isAdmin && (

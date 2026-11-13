@@ -8,6 +8,7 @@ import com.archiv.ArchivMgnSystem.models.Category;
 import com.archiv.ArchivMgnSystem.repositories.CategoryRepository;
 import com.archiv.ArchivMgnSystem.repositories.ReservationRepository;
 import com.archiv.ArchivMgnSystem.repositories.TransactionRepository;
+import com.archiv.ArchivMgnSystem.services.ActivityLogService;
 import com.archiv.ArchivMgnSystem.services.CategoryService;
 import com.archiv.ArchivMgnSystem.services.ItemService;
 import lombok.RequiredArgsConstructor;
@@ -33,12 +34,14 @@ public class CategoryServiceImpl implements CategoryService {
     private final ReservationRepository reservationRepository;
     private final ModelMapper modelMapper;
     private final ItemService itemService;
+    private final ActivityLogService activityLog;
 
     @Override
     public Response createCategory(CategoryDTO categoryDTO) {
         Category categoryToSave = modelMapper.map(categoryDTO, Category.class);
         Category savedCategory = categoryRepository.save(categoryToSave);
         savedCategory.setItems(null);
+        activityLog.record(ActivityLogService.CATEGORY, "Kategorie \"" + savedCategory.getName() + "\" angelegt");
 
         return Response.builder()
                 .status(200)
@@ -79,8 +82,12 @@ public class CategoryServiceImpl implements CategoryService {
         Category existingCategory = categoryRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Category not found"));
 
+        String nameBefore = existingCategory.getName();
         existingCategory.setName(categoryDTO.getName());
         categoryRepository.save(existingCategory);
+        if (!nameBefore.equals(categoryDTO.getName())) {
+            activityLog.record(ActivityLogService.CATEGORY, "Kategorie \"" + nameBefore + "\" umbenannt in \"" + categoryDTO.getName() + "\"");
+        }
 
         return Response.builder()
                 .status(200)
@@ -101,6 +108,11 @@ public class CategoryServiceImpl implements CategoryService {
                     .filter(Objects::nonNull)
                     .toList());
         }
+
+        itemService.deleteImagesAfterCommit(transactionRepository.findProposedImageUrlsByCategoryId(id));
+        int itemCount = category.getItems() == null ? 0 : category.getItems().size();
+        activityLog.record(ActivityLogService.CATEGORY, "Kategorie \"" + category.getName() + "\" gelöscht"
+                + (itemCount > 0 ? " (samt " + itemCount + " Material-Einträgen)" : ""));
 
         // Die Kategorie löscht ihr Material mit (cascade). Dessen Anträge und
         // Reservierungen müssen vorher weg, sonst blockiert die Datenbank.

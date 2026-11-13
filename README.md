@@ -15,7 +15,7 @@ Umgebungsvariablen bereitgestellt (siehe `src/main/resources/application.propert
 | `DB_PASSWORD`  | ja      | Datenbank-Passwort                             | –                                              |
 | `JWT_SECRET`   | ja      | Secret zum Signieren der JWTs (mind. 32 Zeichen)| –                                              |
 | `JWT_EXPIRATION_DAYS` | nein | Gültigkeit einer Anmeldung in Tagen        | `30`                                          |
-| `APP_CORS_ALLOWED_ORIGINS` | produktiv ja | Adresse(n) des Frontends, mit Komma getrennt | leer = nur localhost und private Netzwerkadressen |
+| `APP_CORS_ALLOWED_ORIGINS` | nur bei getrennten Domains | Adresse(n) des Frontends, mit Komma getrennt | leer = eigene Installation (siehe unten) |
 | `APP_UPLOAD_DIR` | nein  | Ordner für hochgeladene Fotos                  | `<Projektverzeichnis>/uploads/items`          |
 | `APP_BACKUP_DIR` | produktiv ja | Ordner für die nächtliche Datensicherung (siehe unten) | leer = keine Sicherung                 |
 | `APP_BACKUP_KEEP_DAYS` | nein | So lange bleiben Datenbank-Sicherungen erhalten | `30`                                     |
@@ -112,9 +112,14 @@ Die Vorschaubilder erzeugt das Backend danach beim ersten Aufruf selbst neu.
   Reverse-Proxy mit Zertifikat (z.B. Caddy oder nginx mit Let's Encrypt), der
   das Frontend ausliefert und `/api` an das Backend weiterreicht. Ohne HTTPS
   gehen Passwörter und Login-Tokens im Klartext über das Netz.
-- **Erlaubte Herkunft:** `APP_CORS_ALLOWED_ORIGINS` auf die echte Adresse des
-  Frontends setzen, z.B. `https://archiv.example.ch`. Ohne diese Angabe nimmt
-  das Backend nur Aufrufe von localhost und aus privaten Netzen an.
+- **Erlaubte Herkunft:** Ohne weitere Einstellung nimmt das Backend Aufrufe
+  nur von Seiten an, die zur eigenen Installation gehören: localhost, private
+  Netze, jede Adresse dieses Rechners sowie die Adresse, unter der auch das
+  Backend angesprochen wird (Frontend und Backend auf derselben Domain).
+  Fremde Webseiten werden abgelehnt. Läuft das Frontend auf einer anderen
+  Domain als das Backend, muss sie in `APP_CORS_ALLOWED_ORIGINS` stehen, z.B.
+  `https://archiv.example.ch` – dann gilt ausschliesslich diese Liste. Lehnt
+  das Backend eine Seite ab, steht das als Warnung im Backend-Log.
 - **Hinter einem Reverse-Proxy** zusätzlich
   `SERVER_FORWARD_HEADERS_STRATEGY=native` setzen, damit das Backend die
   echte Adresse der Besucher sieht (für den Schutz vor zu vielen
@@ -142,6 +147,31 @@ Die Vorschaubilder erzeugt das Backend danach beim ersten Aufruf selbst neu.
    `PUT /api/transactions/{id}` mit Body `"COMPLETED"` oder `"CANCELED"`.
 3. Erst bei `COMPLETED` wird der Lagerbestand angepasst. Eine bereits
    entschiedene Anfrage kann nicht erneut verändert werden.
+
+### Foto-Anträge
+
+Mitglieder können im Artikelfenster unter „Änderung beantragen → Foto" ein
+neues Foto des Materials oder des Lagerorts vorschlagen
+(`POST /api/transactions/photo`). Das bisherige Foto bleibt, bis ein Admin den
+Antrag freigibt; bei einer Ablehnung wird das vorgeschlagene Foto gelöscht.
+
+### Detailansicht für Admins
+
+Unter **Anfragen** öffnet ein Klick auf einen Antrag die Detailansicht
+(`GET /api/transactions/{id}`): Material, Artikelnummer, Lagerort,
+Antragsteller mit Kontakt, Notiz, der Bestand vorher/nachher bzw. bei
+Foto-Anträgen das bisherige und das vorgeschlagene Foto nebeneinander.
+
+## Verlauf
+
+Admins sehen unter **Anfragen → Verlauf** (`GET /api/admin/log`), wer wann was
+im Archiv getan hat: Material angelegt/bearbeitet/gelöscht, Anträge gestellt,
+freigegeben und abgelehnt (mit Bestand vorher → nachher), Kategorien, Events
+und Reservierungen, Mitglieder (Registrierung, Freigabe, Rollen, Entfernen,
+Passwort-Reset). Der Verlauf lässt sich durchsuchen und nach Bereich filtern.
+Einträge werden als Text gespeichert und bleiben lesbar, auch wenn das
+Material oder das Mitglied später gelöscht wird. Der Verlauf beginnt mit
+diesem Update – frühere Vorgänge sind nicht enthalten.
 
 ## Events & Reservationen
 

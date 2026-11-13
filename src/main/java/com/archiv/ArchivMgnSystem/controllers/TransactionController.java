@@ -2,7 +2,9 @@ package com.archiv.ArchivMgnSystem.controllers;
 
 import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.dtos.TransactionRequest;
+import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
+import org.springframework.web.multipart.MultipartFile;
 import com.archiv.ArchivMgnSystem.services.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,16 @@ public class TransactionController {
     @PostMapping("/use")
     public ResponseEntity<Response> use(@RequestBody @Valid TransactionRequest transactionRequest) {
         return ResponseEntity.ok(transactionService.use(transactionRequest));
+    }
+
+    /** Mitglied schlägt ein neues Foto des Materials oder des Lagerorts vor; ein Admin gibt es frei. */
+    @PostMapping("/photo")
+    public ResponseEntity<Response> requestPhoto(
+            @RequestParam("itemId") Long itemId,
+            @RequestParam(value = "target", required = false) PhotoTarget target,
+            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
+            @RequestParam(value = "note", required = false) String note) {
+        return ResponseEntity.ok(transactionService.requestPhoto(itemId, target, imageFile, note));
     }
 
     @GetMapping("/all")

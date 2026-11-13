@@ -64,6 +64,9 @@ export default function Layout() {
     { to: "/profile", label: "Profil", Icon: IconUser, end: false },
   ];
 
+  // Der Verlauf gehört zu den Anfragen und hat keinen eigenen Menüpunkt.
+  const isCurrentSection = (to: string) => to === "/requests" && location.pathname === "/history";
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -75,7 +78,7 @@ export default function Layout() {
               key={item.to}
               to={item.to}
               end={item.end}
-              className={({ isActive }) => `topbar__link ${isActive ? "is-active" : ""}`}
+              className={({ isActive }) => `topbar__link ${isActive || isCurrentSection(item.to) ? "is-active" : ""}`}
             >
               {item.label}
               {!!item.count && (
@@ -109,7 +112,7 @@ export default function Layout() {
             key={item.to}
             to={item.to}
             end={item.end}
-            className={({ isActive }) => `tabbar__item ${isActive ? "is-active" : ""}`}
+            className={({ isActive }) => `tabbar__item ${isActive || isCurrentSection(item.to) ? "is-active" : ""}`}
           >
             <span className="tabbar__icon-wrap">
               <item.Icon className="tabbar__icon" />

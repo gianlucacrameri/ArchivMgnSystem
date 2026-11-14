@@ -8,6 +8,8 @@ import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
 import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
 import com.archiv.ArchivMgnSystem.enums.TransactionType;
+import com.archiv.ArchivMgnSystem.enums.UserRole;
+import com.archiv.ArchivMgnSystem.exceptions.ApiException;
 import com.archiv.ArchivMgnSystem.exceptions.NotFoundException;
 import com.archiv.ArchivMgnSystem.models.Category;
 import com.archiv.ArchivMgnSystem.models.Item;
@@ -30,6 +32,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -55,16 +58,24 @@ public class TransactionServiceImpl implements TransactionService {
     private final ActivityLogService activityLog;
 
     private static final int MAX_OWN_TRANSACTIONS = 100;
+    private static final int MAX_PAGE_SIZE = 500;
+    // Schutz vor Überflutung: so viele unentschiedene Anträge darf ein Mitglied gleichzeitig haben.
+    private static final int MAX_OPEN_REQUESTS_PER_MEMBER = 20;
+    private static final int MAX_QUANTITY = 1_000_000;
 
     @Override
     public Response add(TransactionRequest transactionRequest) {
         Long itemId = transactionRequest.getItemId();
         Integer quantity = transactionRequest.getQuantity();
+        checkQuantity(quantity);
+        checkOptionalText(transactionRequest.getNote(), "Die Notiz", 255);
+        checkOptionalText(transactionRequest.getDescription(), "Die Beschreibung", 255);
 
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Item Not Found"));
 
         User user = userService.getCurrentLoggedInUser();
+        assertMayCreateRequest(user);
 
         //create a pending request; stock is only updated once an admin approves it
         Transaction transaction = Transaction.builder()
@@ -90,6 +101,9 @@ public class TransactionServiceImpl implements TransactionService {
     public Response use(TransactionRequest transactionRequest) {
         Long itemId = transactionRequest.getItemId();
         Integer quantity = transactionRequest.getQuantity();
+        checkQuantity(quantity);
+        checkOptionalText(transactionRequest.getNote(), "Die Notiz", 255);
+        checkOptionalText(transactionRequest.getDescription(), "Die Beschreibung", 255);
 
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Item Not Found"));
@@ -99,6 +113,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         User user = userService.getCurrentLoggedInUser();
+        assertMayCreateRequest(user);
 
         //create a pending request; stock is only updated once an admin approves it
         Transaction transaction = Transaction.builder()
@@ -122,7 +137,8 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public Response getAllTransactions(int page, int size, String filter) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
+                Sort.by(Sort.Direction.DESC, "id"));
 
         //user the Transaction specification
         Specification<Transaction> spec = TransactionFilter.byFilter(filter);
@@ -223,6 +239,7 @@ public class TransactionServiceImpl implements TransactionService {
 
         boolean hasPhoto = imageFile != null && !imageFile.isEmpty();
         boolean changesStock = type == TransactionType.ADD || type == TransactionType.USE;
+        checkQuantity(quantity);
 
         if (changesStock) {
             if (quantity == null || quantity <= 0) {
@@ -239,6 +256,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         User user = userService.getCurrentLoggedInUser();
+        assertMayCreateRequest(user);
         String imageUrl = hasPhoto ? itemService.storeImage(imageFile) : null;
 
         Transaction transaction = Transaction.builder()
@@ -277,6 +295,7 @@ public class TransactionServiceImpl implements TransactionService {
         if (quantity == null || quantity < 0) {
             throw new IllegalArgumentException("Bitte einen Bestand von 0 oder mehr angeben");
         }
+        checkQuantity(quantity);
         checkOptionalText(description, "Die Beschreibung", 255);
         checkOptionalText(note, "Die Notiz", 255);
         Category category = categoryRepository.findById(categoryId)
@@ -291,6 +310,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         User user = userService.getCurrentLoggedInUser();
+        assertMayCreateRequest(user);
         boolean hasPhoto = imageFile != null && !imageFile.isEmpty();
         String imageUrl = hasPhoto ? itemService.storeImage(imageFile) : null;
 
@@ -334,6 +354,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         User user = userService.getCurrentLoggedInUser();
+        assertMayCreateRequest(user);
         Transaction transaction = Transaction.builder()
                 .transactionType(TransactionType.DELETE)
                 .transactionStatus(TransactionStatus.PENDING)
@@ -355,12 +376,13 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public Response editTransaction(Long transactionId, TransactionEditRequest edit) {
-        Transaction transaction = transactionRepository.findById(transactionId)
+        Transaction transaction = transactionRepository.findByIdForUpdate(transactionId)
                 .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
         if (transaction.getTransactionStatus() != TransactionStatus.PENDING) {
             throw new IllegalStateException("This request was already processed");
         }
 
+        checkQuantity(edit.getQuantity());
         TransactionType type = transaction.getTransactionType();
         String before = describe(transaction);
         List<String> changes = new ArrayList<>();
@@ -458,6 +480,27 @@ public class TransactionServiceImpl implements TransactionService {
         };
     }
 
+    /**
+     * Jeder Antrag belegt Platz (mit Foto auch auf der Festplatte) und Zeit
+     * der Admins. Ohne Grenze könnte ein einzelnes Konto den Server füllen.
+     */
+    private void assertMayCreateRequest(User user) {
+        if (user.getRole() == UserRole.ADMIN) {
+            return;
+        }
+        long open = transactionRepository.countByUserIdAndTransactionStatus(user.getId(), TransactionStatus.PENDING);
+        if (open >= MAX_OPEN_REQUESTS_PER_MEMBER) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Du hast bereits " + MAX_OPEN_REQUESTS_PER_MEMBER
+                    + " offene Anträge. Bitte warte, bis ein Admin darüber entschieden hat.");
+        }
+    }
+
+    private static void checkQuantity(Integer quantity) {
+        if (quantity != null && quantity > MAX_QUANTITY) {
+            throw new IllegalArgumentException("Die Menge ist zu gross (höchstens " + MAX_QUANTITY + ")");
+        }
+    }
+
     private static String requireText(String value, String messageIfMissing, int maxLength) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(messageIfMissing);
@@ -494,7 +537,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public Response updateTransactionStatus(Long transactionId, TransactionStatus status) {
-        Transaction existingTransaction = transactionRepository.findById(transactionId)
+        Transaction existingTransaction = transactionRepository.findByIdForUpdate(transactionId)
                 .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
 
         if (existingTransaction.getTransactionStatus() != TransactionStatus.PENDING) {

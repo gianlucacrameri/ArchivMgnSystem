@@ -18,6 +18,8 @@ public class JwtUtil {
 
     private static final String TOKEN_VERSION_CLAIM = "ver";
 
+    private static final int MIN_SECRET_BYTES = 32;
+
     private SecretKey key;
 
     @Value("${jwt.secret}")
@@ -30,6 +32,11 @@ public class JwtUtil {
     @PostConstruct
     private void init() {
         byte[] keyByte = secretJwtString.getBytes(StandardCharsets.UTF_8);
+        // Mit einem kurzen Secret liessen sich Login-Tokens durch Ausprobieren fälschen.
+        if (keyByte.length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException("JWT_SECRET ist zu kurz: mindestens " + MIN_SECRET_BYTES
+                    + " Zeichen nötig (z.B. mit 'openssl rand -base64 48' erzeugen)");
+        }
         this.key = new SecretKeySpec(keyByte, "HmacSHA256");
     }
 

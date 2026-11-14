@@ -92,7 +92,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Response> handleDataIntegrity(DataIntegrityViolationException e) {
-        log.warn("Data integrity violation: {}", e.getMostSpecificCause().getMessage());
+        String cause = String.valueOf(e.getMostSpecificCause().getMessage());
+        if (cause.contains("Data too long") || cause.contains("Out of range")) {
+            return respond(HttpStatus.BAD_REQUEST, "Eine Eingabe ist zu lang oder zu gross");
+        }
+        log.warn("Data integrity violation: {}", cause);
         return respond(HttpStatus.CONFLICT, "Der Eintrag existiert bereits oder wird noch verwendet");
     }
 

@@ -71,6 +71,9 @@ public class Transaction {
     @Column(length = 20)
     private StockPrecision proposedStockPrecision;
 
+    /** Gesetzt, wenn ein Admin den Antrag vor der Entscheidung angepasst hat. */
+    private String editedByName;
+
     /** Wer den Antrag freigegeben oder abgelehnt hat (als Text, bleibt auch nach Löschen des Kontos). */
     private String decidedByName;
 

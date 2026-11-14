@@ -1,6 +1,7 @@
 package com.archiv.ArchivMgnSystem.controllers;
 
 import com.archiv.ArchivMgnSystem.dtos.Response;
+import com.archiv.ArchivMgnSystem.dtos.TransactionEditRequest;
 import com.archiv.ArchivMgnSystem.dtos.TransactionRequest;
 import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
 import com.archiv.ArchivMgnSystem.enums.StockPrecision;
@@ -61,7 +62,7 @@ public class TransactionController {
     @PostMapping("/new-item")
     public ResponseEntity<Response> requestNewItem(
             @RequestParam("name") String name,
-            @RequestParam("place") String place,
+            @RequestParam(value = "place", required = false) String place,
             @RequestParam("quantity") Integer quantity,
             @RequestParam(value = "stockPrecision", required = false) StockPrecision stockPrecision,
             @RequestParam("categoryId") Long categoryId,
@@ -112,6 +113,15 @@ public class TransactionController {
             @RequestParam int year) {
 
         return ResponseEntity.ok(transactionService.getAllTransactionByMonthAndYear(month, year));
+    }
+
+    /** Admin passt einen offenen Antrag an (z.B. Menge oder Lagerort), bevor er ihn freigibt. */
+    @PutMapping("/{transactionId}/edit")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
+    public ResponseEntity<Response> editTransaction(
+            @PathVariable Long transactionId,
+            @RequestBody TransactionEditRequest edit) {
+        return ResponseEntity.ok(transactionService.editTransaction(transactionId, edit));
     }
 
     @PutMapping("/{transactionId}")

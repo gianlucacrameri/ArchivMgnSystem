@@ -57,6 +57,9 @@ export interface TransactionDTO {
   proposedDescription?: string;
   proposedCategoryName?: string;
   proposedStockPrecision?: StockPrecision;
+  proposedCategoryId?: number;
+  /** Gesetzt, wenn ein Admin den Antrag vor der Entscheidung angepasst hat. */
+  editedByName?: string;
   /** Wer den Antrag freigegeben oder abgelehnt hat. */
   decidedByName?: string;
   updatedAt?: string;

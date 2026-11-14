@@ -162,8 +162,8 @@ Ablehnung wird das vorgeschlagene Foto gelöscht.
 ### Neues Material und Löschung beantragen
 
 Unter **Anträge** kann ein Mitglied beantragen, ein neues Material ins Archiv
-aufzunehmen (`POST /api/transactions/new-item`: Name, Lagerort, Kategorie,
-Bestand, optional Beschreibung, Foto und Notiz) oder ein bestehendes zu
+aufzunehmen (`POST /api/transactions/new-item`: Name, Kategorie, Bestand,
+optional Lagerort, Beschreibung, Foto und Notiz) oder ein bestehendes zu
 löschen (`POST /api/transactions/delete-item` mit Begründung; auch direkt im
 Artikelfenster). Bis zur Entscheidung eines Admins ändert sich im Archiv
 nichts:
@@ -174,6 +174,19 @@ nichts:
 - Freigabe einer Löschung entfernt das Material samt Fotos, offenen Anträgen
   und Reservierungen. Der Löschantrag selbst bleibt beim Mitglied sichtbar.
 - Eine Ablehnung ändert nichts; ein mitgeschicktes Foto wird gelöscht.
+
+### Anträge bearbeiten
+
+Ein Admin kann einen offenen Antrag in der Detailansicht über „Bearbeiten"
+anpassen, bevor er ihn freigibt (`PUT /api/transactions/{id}/edit`): bei
+Bestandsanträgen die Menge, bei Vorschlägen für neues Material Name,
+Lagerort, Kategorie, Bestand und Beschreibung, bei Fotos das Ziel
+(Material/Lagerort). „Speichern und freigeben" erledigt beides in einem
+Schritt. Das Mitglied sieht, dass sein Antrag angepasst wurde; der Verlauf
+hält fest, was geändert wurde.
+
+Der Lagerort ist beim Vorschlag eines neuen Materials freiwillig. Fehlt er,
+muss ihn ein Admin vor der Freigabe eintragen.
 
 ### Detailansicht für Admins
 

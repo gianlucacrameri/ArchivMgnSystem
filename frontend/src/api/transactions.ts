@@ -30,7 +30,7 @@ export async function submitRequest(input: {
 /** Schlägt vor, ein neues Material ins Archiv aufzunehmen. Angelegt wird es erst nach Freigabe. */
 export async function requestNewItem(input: {
   name: string;
-  place: string;
+  place?: string;
   quantity: number;
   stockPrecision: StockPrecision;
   categoryId: number;
@@ -40,7 +40,7 @@ export async function requestNewItem(input: {
 }): Promise<void> {
   const form = new FormData();
   form.set("name", input.name);
-  form.set("place", input.place);
+  if (input.place) form.set("place", input.place);
   form.set("quantity", String(input.quantity));
   form.set("stockPrecision", input.stockPrecision);
   form.set("categoryId", String(input.categoryId));
@@ -56,6 +56,22 @@ export async function requestItemDeletion(itemId: number, note?: string): Promis
   form.set("itemId", String(itemId));
   if (note) form.set("note", note);
   await apiSendForm("POST", "/api/transactions/delete-item", form);
+}
+
+/** Admin passt einen offenen Antrag an, bevor er ihn freigibt. Nicht gesetzte Felder bleiben unverändert. */
+export async function editTransaction(
+  id: number,
+  changes: {
+    quantity?: number;
+    photoTarget?: PhotoTarget;
+    name?: string;
+    place?: string;
+    categoryId?: number;
+    stockPrecision?: StockPrecision;
+    description?: string;
+  }
+): Promise<void> {
+  await apiSend("PUT", `/api/transactions/${id}/edit`, changes);
 }
 
 /** Ein einzelner Antrag mit allen Angaben (nur für Admins). */

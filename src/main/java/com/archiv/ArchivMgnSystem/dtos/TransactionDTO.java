@@ -40,6 +40,7 @@ public class TransactionDTO {
     private String proposedImageUrl;
     private PhotoTarget photoTarget;
     private String decidedByName;
+    private String editedByName;
     private String subjectName;
     private String proposedPlace;
     private String proposedDescription;

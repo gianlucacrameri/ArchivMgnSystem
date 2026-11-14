@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import type { TransactionDTO } from "../types";
+import { useEffect, useState, type FormEvent } from "react";
+import type { CategoryDTO, PhotoTarget, StockPrecision, TransactionDTO } from "../types";
+import NumberField from "./NumberField";
+import { fetchCategories } from "../api/categories";
 import Modal from "./Modal";
 import AuthenticatedImage from "./AuthenticatedImage";
-import { fetchTransaction } from "../api/transactions";
+import { editTransaction, fetchTransaction } from "../api/transactions";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { describeRequest, formatDateTime } from "../utils/describeRequest";
@@ -12,12 +14,14 @@ interface Props {
   request: TransactionDTO;
   processing: boolean;
   onDecide: (status: "COMPLETED" | "CANCELED") => void;
+  /** Der Antrag wurde bearbeitet - die Liste dahinter soll die neuen Angaben zeigen. */
+  onEdited: (updated: TransactionDTO) => void;
   onClose: () => void;
 }
 
 /** Alle Angaben zu einem Antrag, damit ein Admin ihn beurteilen kann. */
-export default function RequestDetailModal({ request, processing, onDecide, onClose }: Props) {
-  const { showError } = useToast();
+export default function RequestDetailModal({ request, processing, onDecide, onEdited, onClose }: Props) {
+  const { showError, showSuccess } = useToast();
   const [detail, setDetail] = useState<TransactionDTO>(request);
 
   useEffect(() => {
@@ -31,6 +35,76 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
       cancelled = true;
     };
   }, [request.id, showError]);
+
+  // ---- Bearbeiten durch den Admin
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]);
+  const [editQuantity, setEditQuantity] = useState<number | "">(0);
+  const [editName, setEditName] = useState("");
+  const [editPlace, setEditPlace] = useState("");
+  const [editCategoryId, setEditCategoryId] = useState<number | "">("");
+  const [editPrecision, setEditPrecision] = useState<StockPrecision>("EXACT");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPhotoTarget, setEditPhotoTarget] = useState<PhotoTarget>("ITEM");
+
+  async function startEditing() {
+    setEditQuantity(detail.totalItems);
+    setEditName(detail.subjectName ?? "");
+    setEditPlace(detail.proposedPlace ?? "");
+    setEditCategoryId(detail.proposedCategoryId ?? "");
+    setEditPrecision(detail.proposedStockPrecision ?? "EXACT");
+    setEditDescription(detail.proposedDescription ?? "");
+    setEditPhotoTarget(detail.photoTarget ?? "ITEM");
+    if (detail.transactionType === "NEW") {
+      try {
+        setCategories(await fetchCategories());
+      } catch (err) {
+        showError(err instanceof ApiError ? err.message : "Kategorien konnten nicht geladen werden");
+        return;
+      }
+    }
+    setEditing(true);
+  }
+
+  /** Speichert die Anpassungen; mit approve=true wird der Antrag danach gleich freigegeben. */
+  async function saveEdit(approve: boolean) {
+    setSaving(true);
+    try {
+      const isNewItem = detail.transactionType === "NEW";
+      await editTransaction(detail.id, {
+        quantity: detail.transactionType === "PHOTO" ? undefined : editQuantity === "" ? undefined : editQuantity,
+        photoTarget: detail.proposedImageUrl && !isNewItem ? editPhotoTarget : undefined,
+        ...(isNewItem
+          ? {
+              name: editName.trim(),
+              place: editPlace.trim(),
+              categoryId: editCategoryId === "" ? undefined : editCategoryId,
+              stockPrecision: editPrecision,
+              description: editDescription.trim(),
+            }
+          : {}),
+      });
+      const updated = await fetchTransaction(detail.id);
+      setDetail(updated);
+      onEdited(updated);
+      setEditing(false);
+      if (approve) {
+        onDecide("COMPLETED");
+      } else {
+        showSuccess("Antrag angepasst");
+      }
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleEditSubmit(e: FormEvent) {
+    e.preventDefault();
+    saveEdit(true);
+  }
 
   const item = detail.item;
   const isNew = detail.transactionType === "NEW";
@@ -99,6 +173,114 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
           </div>
         )}
 
+        {editing && (
+          <form onSubmit={handleEditSubmit} className="stacked-form">
+            {isNew && (
+              <>
+                <label className="field">
+                  <span>Name</span>
+                  <input required maxLength={255} value={editName} onChange={(e) => setEditName(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Lagerort</span>
+                  <input required maxLength={255} value={editPlace} onChange={(e) => setEditPlace(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Kategorie</span>
+                  <select required value={editCategoryId} onChange={(e) => setEditCategoryId(Number(e.target.value))}>
+                    <option value="" disabled>
+                      Bitte wählen…
+                    </option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            )}
+            {(isNew || changesStock) && (
+              <label className="field">
+                <span>{isNew ? "Bestand" : detail.transactionType === "ADD" ? "Menge (hinzufügen)" : "Menge (verbrauchen)"}</span>
+                <NumberField
+                  value={editQuantity}
+                  onChange={setEditQuantity}
+                  min={isNew ? 0 : 1}
+                  required
+                  fallback={isNew ? 0 : 1}
+                />
+              </label>
+            )}
+            {isNew && (
+              <>
+                <div className="field">
+                  <span>Bestand ist...</span>
+                  <div className="segmented">
+                    <button
+                      type="button"
+                      className={`segmented__option ${editPrecision === "EXACT" ? "is-active" : ""}`}
+                      onClick={() => setEditPrecision("EXACT")}
+                    >
+                      Genau gezählt
+                    </button>
+                    <button
+                      type="button"
+                      className={`segmented__option ${editPrecision === "APPROXIMATE" ? "is-active" : ""}`}
+                      onClick={() => setEditPrecision("APPROXIMATE")}
+                    >
+                      Ungefähr
+                    </button>
+                  </div>
+                </div>
+                <label className="field">
+                  <span>Beschreibung (optional)</span>
+                  <textarea
+                    maxLength={255}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={2}
+                  />
+                </label>
+              </>
+            )}
+            {hasPhoto && (
+              <div className="field">
+                <span>Neues Foto ersetzt das Foto vom...</span>
+                <div className="segmented">
+                  <button
+                    type="button"
+                    className={`segmented__option ${editPhotoTarget === "ITEM" ? "is-active" : ""}`}
+                    onClick={() => setEditPhotoTarget("ITEM")}
+                  >
+                    Material
+                  </button>
+                  <button
+                    type="button"
+                    className={`segmented__option ${editPhotoTarget === "LOCATION" ? "is-active" : ""}`}
+                    onClick={() => setEditPhotoTarget("LOCATION")}
+                  >
+                    Lagerort
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="button-row">
+              <button type="submit" className="btn btn--primary" disabled={saving || processing}>
+                Speichern und freigeben
+              </button>
+              <button type="button" className="btn btn--secondary" disabled={saving} onClick={() => saveEdit(false)}>
+                Nur speichern
+              </button>
+              <button type="button" className="btn btn--link" disabled={saving} onClick={() => setEditing(false)}>
+                Abbrechen
+              </button>
+            </div>
+            <p className="hint">Das Mitglied sieht, dass der Antrag angepasst wurde.</p>
+          </form>
+        )}
+
+        {!editing && (
         <dl className="item-detail__facts item-detail__facts--2col">
           <div>
             <dt>Material</dt>
@@ -110,7 +292,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
           </div>
           <div>
             <dt>Lagerort</dt>
-            <dd>{item?.place ?? detail.proposedPlace ?? "–"}</dd>
+            <dd>{item?.place ?? detail.proposedPlace ?? (isNew ? "fehlt noch" : "–")}</dd>
           </div>
           {isNew && (
             <>
@@ -173,8 +355,18 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
             </div>
           )}
         </dl>
+        )}
 
-        {isNew && detail.proposedDescription && (
+        {!editing && isNew && isPending && !detail.proposedPlace && (
+          <p className="form-error" role="alert">
+            Es fehlt noch der Lagerort. Bitte über „Bearbeiten" eintragen, bevor du freigibst.
+          </p>
+        )}
+        {!editing && detail.editedByName && (
+          <p className="hint">Von {detail.editedByName} angepasst.</p>
+        )}
+
+        {!editing && isNew && detail.proposedDescription && (
           <p className="item-detail__description">Beschreibung: {detail.proposedDescription}</p>
         )}
         {detail.note && (
@@ -197,7 +389,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
           </p>
         )}
 
-        {isPending && (
+        {isPending && !editing && (
           <div className="button-row">
             <button
               type="button"
@@ -210,6 +402,11 @@ export default function RequestDetailModal({ request, processing, onDecide, onCl
             <button type="button" className="btn btn--secondary" disabled={processing} onClick={() => onDecide("CANCELED")}>
               Ablehnen
             </button>
+            {!isDelete && (
+              <button type="button" className="btn btn--link" disabled={processing} onClick={startEditing}>
+                Bearbeiten
+              </button>
+            )}
           </div>
         )}
       </div>

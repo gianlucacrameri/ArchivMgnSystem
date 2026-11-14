@@ -106,6 +106,18 @@ cp <APP_BACKUP_DIR>/fotos/* <APP_UPLOAD_DIR>/
 
 Die Vorschaubilder erzeugt das Backend danach beim ersten Aufruf selbst neu.
 
+### Weitere Schutzmassnahmen
+
+- Hochgeladene Dateien werden am tatsächlichen Inhalt als Bild erkannt (JPEG,
+  PNG, WEBP, GIF) – der mitgeschickte Dateityp allein genügt nicht.
+- Ein Mitglied kann höchstens 20 offene Anträge gleichzeitig haben.
+- Über einen Antrag kann nur einmal entschieden werden, auch wenn zwei Admins
+  gleichzeitig klicken.
+- Listen liefern höchstens 500 Einträge pro Abruf; Mengen sind auf 1'000'000
+  begrenzt, zu lange Eingaben werden mit einer klaren Meldung abgelehnt.
+- `JWT_SECRET` muss mindestens 32 Zeichen lang sein, sonst startet das
+  Backend nicht.
+
 ## Produktiver Betrieb
 
 - **HTTPS:** Das Backend spricht selbst nur HTTP. Davor gehört ein

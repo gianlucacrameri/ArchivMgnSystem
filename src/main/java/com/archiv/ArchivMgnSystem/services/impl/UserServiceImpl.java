@@ -248,7 +248,16 @@ public class UserServiceImpl implements UserService {
             if (!SIMPLE_EMAIL.matcher(email).matches()) {
                 throw new IllegalArgumentException("Bitte eine gültige E-Mail-Adresse angeben");
             }
+            if (email.length() > 200) {
+                throw new IllegalArgumentException("E-Mail ist zu lang");
+            }
             existingUser.setEmail(email);
+        }
+        if (userDTO.getPhoneNumber() != null && userDTO.getPhoneNumber().trim().length() > 40) {
+            throw new IllegalArgumentException("Telefonnummer ist zu lang");
+        }
+        if (userDTO.getUsername() != null && userDTO.getUsername().trim().length() > 100) {
+            throw new IllegalArgumentException("Name ist zu lang");
         }
         if (userDTO.getPhoneNumber() != null && !userDTO.getPhoneNumber().isBlank()) {
             existingUser.setPhoneNumber(userDTO.getPhoneNumber().trim());

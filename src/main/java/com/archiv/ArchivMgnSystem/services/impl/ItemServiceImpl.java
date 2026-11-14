@@ -44,6 +44,7 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -75,6 +76,7 @@ public class ItemServiceImpl implements ItemService {
     @Value("${app.upload-dir:${user.dir}/uploads/items}")
     private String uploadDir;
 
+    private static final int MAX_PAGE_SIZE = 500;
     private static final long MAX_IMAGE_SIZE_BYTES = 10L * 1024 * 1024; // 10 MB
 
     private static final String VARIANT_DIRECTORY = "variants";
@@ -269,7 +271,9 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public Response getAllItems(int page, int size, String filter, Long categoryId) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        // Seitengrösse begrenzen: sonst liesse sich mit einer Anfrage die ganze Tabelle abrufen.
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
+                Sort.by(Sort.Direction.DESC, "id"));
 
         Specification<Item> spec = ItemFilter.byFilter(filter).and(ItemFilter.byCategory(categoryId));
 
@@ -487,14 +491,47 @@ public class ItemServiceImpl implements ItemService {
         return saveImage(imageFile);
     }
 
+    /** Erkennt den Bildtyp an den ersten Bytes der Datei; null, wenn es kein erlaubtes Bild ist. */
+    private static String detectImageExtension(MultipartFile file) {
+        byte[] head = new byte[12];
+        int read;
+        try (InputStream in = file.getInputStream()) {
+            read = in.readNBytes(head, 0, head.length);
+        } catch (IOException e) {
+            return null;
+        }
+        if (read >= 3 && (head[0] & 0xFF) == 0xFF && (head[1] & 0xFF) == 0xD8 && (head[2] & 0xFF) == 0xFF) {
+            return ".jpg";
+        }
+        if (read >= 8 && (head[0] & 0xFF) == 0x89 && head[1] == 'P' && head[2] == 'N' && head[3] == 'G'
+                && head[4] == 0x0D && head[5] == 0x0A && head[6] == 0x1A && head[7] == 0x0A) {
+            return ".png";
+        }
+        if (read >= 6 && head[0] == 'G' && head[1] == 'I' && head[2] == 'F' && head[3] == '8'
+                && (head[4] == '7' || head[4] == '9') && head[5] == 'a') {
+            return ".gif";
+        }
+        if (read >= 12 && head[0] == 'R' && head[1] == 'I' && head[2] == 'F' && head[3] == 'F'
+                && head[8] == 'W' && head[9] == 'E' && head[10] == 'B' && head[11] == 'P') {
+            return ".webp";
+        }
+        return null;
+    }
+
     private String saveImage(MultipartFile imageFile) {
         String contentType = imageFile.getContentType();
-        String extension = contentType != null ? ALLOWED_IMAGE_TYPES.get(contentType) : null;
-        if (extension == null) {
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.containsKey(contentType)) {
             throw new IllegalArgumentException("Only JPEG, PNG, WEBP or GIF images are allowed");
         }
         if (imageFile.getSize() > MAX_IMAGE_SIZE_BYTES) {
             throw new IllegalArgumentException("Image must not be larger than 10 MB");
+        }
+        // Der mitgeschickte Dateityp ist eine blosse Behauptung des Absenders.
+        // Massgebend ist, was wirklich in der Datei steht - sonst liesse sich
+        // Beliebiges (HTML, Skripte, Archive) als "Foto" auf dem Server ablegen.
+        String extension = detectImageExtension(imageFile);
+        if (extension == null) {
+            throw new IllegalArgumentException("Die Datei ist kein gültiges Bild (erlaubt: JPEG, PNG, WEBP, GIF)");
         }
 
         File directory = new File(uploadDir);

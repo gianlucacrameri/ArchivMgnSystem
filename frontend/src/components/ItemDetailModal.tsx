@@ -8,6 +8,7 @@ import { deleteItem, updateItem } from "../api/items";
 import { ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import DeleteRequestModal from "./DeleteRequestModal";
 
 interface Props {
   item: ItemDTO;
@@ -26,6 +27,7 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
   const [photoTarget, setPhotoTarget] = useState<PhotoTarget>("ITEM");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [requestingDeletion, setRequestingDeletion] = useState(false);
 
   const [editMode, setEditMode] = useState(false);
   const [editName, setEditName] = useState(item.name);
@@ -96,6 +98,10 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Löschen fehlgeschlagen");
     }
+  }
+
+  if (requestingDeletion) {
+    return <DeleteRequestModal item={item} onClose={() => setRequestingDeletion(false)} onRequested={onClose} />;
   }
 
   return (
@@ -216,6 +222,15 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
                 : "Ein Admin muss diese Änderung noch freigeben."}
             </p>
           </form>
+
+          {!isAdmin && (
+            <>
+              <hr className="divider" />
+              <button type="button" className="btn btn--link btn--danger-text" onClick={() => setRequestingDeletion(true)}>
+                Löschung dieses Materials beantragen
+              </button>
+            </>
+          )}
 
           {isAdmin && (
             <>

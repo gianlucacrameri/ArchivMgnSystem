@@ -1,5 +1,5 @@
 import { apiGet, apiSend, apiSendForm } from "./client";
-import type { PhotoTarget, TransactionDTO, TransactionStatus, TransactionType } from "../types";
+import type { PhotoTarget, StockPrecision, TransactionDTO, TransactionStatus, TransactionType } from "../types";
 import { prepareImageForUpload } from "../utils/resizeImage";
 
 /**
@@ -25,6 +25,37 @@ export async function submitRequest(input: {
   }
   if (input.note) form.set("note", input.note);
   await apiSendForm("POST", "/api/transactions/request", form);
+}
+
+/** Schlägt vor, ein neues Material ins Archiv aufzunehmen. Angelegt wird es erst nach Freigabe. */
+export async function requestNewItem(input: {
+  name: string;
+  place: string;
+  quantity: number;
+  stockPrecision: StockPrecision;
+  categoryId: number;
+  description?: string;
+  imageFile?: File | null;
+  note?: string;
+}): Promise<void> {
+  const form = new FormData();
+  form.set("name", input.name);
+  form.set("place", input.place);
+  form.set("quantity", String(input.quantity));
+  form.set("stockPrecision", input.stockPrecision);
+  form.set("categoryId", String(input.categoryId));
+  if (input.description) form.set("description", input.description);
+  if (input.imageFile) form.set("imageFile", await prepareImageForUpload(input.imageFile));
+  if (input.note) form.set("note", input.note);
+  await apiSendForm("POST", "/api/transactions/new-item", form);
+}
+
+/** Schlägt vor, ein Material zu löschen. Gelöscht wird es erst nach Freigabe. */
+export async function requestItemDeletion(itemId: number, note?: string): Promise<void> {
+  const form = new FormData();
+  form.set("itemId", String(itemId));
+  if (note) form.set("note", note);
+  await apiSendForm("POST", "/api/transactions/delete-item", form);
 }
 
 /** Ein einzelner Antrag mit allen Angaben (nur für Admins). */

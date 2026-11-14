@@ -2,6 +2,7 @@ package com.archiv.ArchivMgnSystem.models;
 
 
 import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
+import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
 import com.archiv.ArchivMgnSystem.enums.TransactionType;
 import jakarta.persistence.*;
@@ -51,6 +52,24 @@ public class Transaction {
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(length = 20)
     private PhotoTarget photoTarget;
+
+    /**
+     * Name des betroffenen Materials als Text: bei Anträgen auf ein neues
+     * Material (das es noch nicht gibt) und auf Löschung (danach gibt es es
+     * nicht mehr) der einzige Hinweis, worum es ging.
+     */
+    private String subjectName;
+
+    // Nur bei Anträgen auf ein neues Material: die vorgeschlagenen Angaben.
+    private String proposedPlace;
+    private String proposedDescription;
+    private Long proposedCategoryId;
+    private String proposedCategoryName;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 20)
+    private StockPrecision proposedStockPrecision;
 
     /** Wer den Antrag freigegeben oder abgelehnt hat (als Text, bleibt auch nach Löschen des Kontos). */
     private String decidedByName;

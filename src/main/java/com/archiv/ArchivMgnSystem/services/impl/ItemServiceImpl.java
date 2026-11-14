@@ -138,6 +138,29 @@ public class ItemServiceImpl implements ItemService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public Item createFromProposal(String name, String place, int quantity, StockPrecision precision,
+                                   Category category, String description, String imageUrl, String requestedBy) {
+        Item item = Item.builder()
+                .name(name)
+                .place(place)
+                .stockQuantity(quantity)
+                .stockPrecision(precision != null ? precision : StockPrecision.EXACT)
+                .category(category)
+                .description(description)
+                .imageUrl(imageUrl)
+                .createdAt(LocalDateTime.now())
+                .build();
+        item.setSku(String.format("ART-%05d", nextArticleNumber()));
+        itemRepository.saveAndFlush(item);
+
+        activityLog.record(ActivityLogService.MATERIAL, "Material \"" + item.getName() + "\" (" + item.getSku()
+                + ") angelegt (beantragt von " + requestedBy + "), Bestand " + item.getStockQuantity()
+                + ", Lagerort " + item.getPlace());
+        return item;
+    }
+
     /**
      * Artikelnummern werden fortlaufend ab 0 vergeben - unabhängig von der
      * technischen DB-ID. Der Zähler läuft auch nach dem Löschen eines Items

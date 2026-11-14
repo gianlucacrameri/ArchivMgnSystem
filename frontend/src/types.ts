@@ -1,6 +1,7 @@
 export type UserRole = "ADMIN" | "USER" | "MANAGER";
 
-export type TransactionType = "ADD" | "USE" | "PHOTO";
+/** NEW = neues Material aufnehmen, DELETE = Material löschen (beides als Antrag). */
+export type TransactionType = "ADD" | "USE" | "PHOTO" | "NEW" | "DELETE";
 /** Welches Foto ein Foto-Antrag ersetzen soll: das des Materials oder das des Lagerorts. */
 export type PhotoTarget = "ITEM" | "LOCATION";
 export type TransactionStatus = "PENDING" | "COMPLETED" | "CANCELED";
@@ -49,6 +50,13 @@ export interface TransactionDTO {
   /** Nur bei Foto-Anträgen. */
   proposedImageUrl?: string;
   photoTarget?: PhotoTarget;
+  /** Name des Materials als Text - bei NEW (gibt es noch nicht) und DELETE (gibt es danach nicht mehr). */
+  subjectName?: string;
+  /** Nur bei Anträgen auf ein neues Material. */
+  proposedPlace?: string;
+  proposedDescription?: string;
+  proposedCategoryName?: string;
+  proposedStockPrecision?: StockPrecision;
   /** Wer den Antrag freigegeben oder abgelehnt hat. */
   decidedByName?: string;
   updatedAt?: string;

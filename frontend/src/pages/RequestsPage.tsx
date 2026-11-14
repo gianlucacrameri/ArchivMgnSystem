@@ -32,6 +32,14 @@ export default function RequestsPage() {
   }, [load]);
 
   async function decide(id: number, status: "COMPLETED" | "CANCELED") {
+    const request = pending.find((t) => t.id === id);
+    if (
+      status === "COMPLETED" &&
+      request?.transactionType === "DELETE" &&
+      !window.confirm(`"${request.item?.name ?? request.subjectName}" wirklich endgültig löschen?`)
+    ) {
+      return;
+    }
     setProcessingId(id);
     try {
       await updateTransactionStatus(id, status);

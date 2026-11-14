@@ -58,7 +58,7 @@ export default function Layout() {
     ...(isAdmin
       ? [
           { to: "/requests", label: "Anfragen", Icon: IconCheck, end: false, count: overview?.pendingRequests },
-          { to: "/members", label: "Mitglieder", Icon: IconUsers, end: false, count: overview?.pendingRegistrations },
+          { to: "/members", label: "Mitglieder*innen", Icon: IconUsers, end: false, count: overview?.pendingRegistrations },
         ]
       : [{ to: "/my-requests", label: "Anträge", Icon: IconList, end: false }]),
     { to: "/profile", label: "Profil", Icon: IconUser, end: false },

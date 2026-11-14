@@ -113,6 +113,7 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
       {item.locationImageUrl && !editMode && (
         <>
           <p className="hint">Lagerort-Foto</p>
+          <br/>
           <div className="item-detail__image">
             <AuthenticatedImage src={item.locationImageUrl} alt={`Lagerort von ${item.name}`} size="medium" className="item-detail__img" />
           </div>
@@ -130,6 +131,7 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
               <dt>Bestand</dt>
               <dd>
                 {item.stockQuantity} Stk.{" "}
+                <br/>
                 <span className="hint">({item.stockPrecision === "APPROXIMATE" ? "ungefähr" : "genau"})</span>
               </dd>
             </div>
@@ -216,11 +218,14 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
             <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
               {submitting ? "Wird gesendet…" : "Antrag einreichen"}
             </button>
+
+            <br/>
             <p className="hint">
               {photoFile
                 ? "Ein Admin muss den Antrag freigeben. Erst dann ersetzt das neue Foto das bisherige."
                 : "Ein Admin muss diese Änderung noch freigeben."}
             </p>
+            <br/>
           </form>
 
           {!isAdmin && (

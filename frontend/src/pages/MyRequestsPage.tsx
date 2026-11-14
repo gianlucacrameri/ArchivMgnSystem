@@ -86,6 +86,7 @@ Du hast noch nichts beantragt.
                 <strong>{describeRequest(t, "gelöschtes Material")}</strong>
                 <span className="event-card__meta">Beantragt am {formatDateTime(t.createdAt)}</span>
                 {t.note && <span className="event-card__meta">Notiz: {t.note}</span>}
+                {t.editedByName && <span className="event-card__meta">Von {t.editedByName} angepasst</span>}
               </div>
               <span className={`badge ${status.className}`}>{status.text}</span>
             </li>

@@ -2,6 +2,7 @@ package com.archiv.ArchivMgnSystem.services.impl;
 
 import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.dtos.TransactionDTO;
+import com.archiv.ArchivMgnSystem.dtos.TransactionEditRequest;
 import com.archiv.ArchivMgnSystem.dtos.TransactionRequest;
 import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
 import com.archiv.ArchivMgnSystem.enums.StockPrecision;
@@ -34,8 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @Slf4j
@@ -268,7 +271,9 @@ public class TransactionServiceImpl implements TransactionService {
     public Response requestNewItem(String name, String place, Integer quantity, StockPrecision precision, Long categoryId,
                                    String description, MultipartFile imageFile, String note) {
         String trimmedName = requireText(name, "Bitte einen Namen angeben", 255);
-        String trimmedPlace = requireText(place, "Bitte einen Lagerort angeben", 255);
+        // Der Lagerort darf beim Antrag offen bleiben - spätestens der Admin trägt ihn vor der Freigabe ein.
+        checkOptionalText(place, "Der Lagerort", 255);
+        String trimmedPlace = place == null || place.isBlank() ? null : place.trim();
         if (quantity == null || quantity < 0) {
             throw new IllegalArgumentException("Bitte einen Bestand von 0 oder mehr angeben");
         }
@@ -347,6 +352,112 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public Response editTransaction(Long transactionId, TransactionEditRequest edit) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
+        if (transaction.getTransactionStatus() != TransactionStatus.PENDING) {
+            throw new IllegalStateException("This request was already processed");
+        }
+
+        TransactionType type = transaction.getTransactionType();
+        String before = describe(transaction);
+        List<String> changes = new ArrayList<>();
+
+        if (edit.getQuantity() != null && !edit.getQuantity().equals(transaction.getTotalItems())) {
+            if (type == TransactionType.ADD || type == TransactionType.USE) {
+                if (edit.getQuantity() <= 0) {
+                    throw new IllegalArgumentException("Bitte eine Menge grösser als 0 angeben");
+                }
+                if (type == TransactionType.USE && edit.getQuantity() > transaction.getItem().getStockQuantity()) {
+                    throw new IllegalArgumentException("Requested quantity exceeds current stock");
+                }
+                changes.add("Menge " + transaction.getTotalItems() + " → " + edit.getQuantity());
+                transaction.setTotalItems(edit.getQuantity());
+            } else if (type == TransactionType.NEW) {
+                if (edit.getQuantity() < 0) {
+                    throw new IllegalArgumentException("Bitte einen Bestand von 0 oder mehr angeben");
+                }
+                changes.add("Bestand " + transaction.getTotalItems() + " → " + edit.getQuantity());
+                transaction.setTotalItems(edit.getQuantity());
+            }
+        }
+
+        if (edit.getPhotoTarget() != null && transaction.getProposedImageUrl() != null
+                && type != TransactionType.NEW && edit.getPhotoTarget() != transaction.getPhotoTarget()) {
+            changes.add("Foto gilt für " + (edit.getPhotoTarget() == PhotoTarget.LOCATION ? "Lagerort" : "Material"));
+            transaction.setPhotoTarget(edit.getPhotoTarget());
+        }
+
+        if (type == TransactionType.NEW) {
+            if (edit.getName() != null) {
+                String name = requireText(edit.getName(), "Bitte einen Namen angeben", 255);
+                if (!name.equals(transaction.getSubjectName())) {
+                    boolean onlyCaseChanged = name.equalsIgnoreCase(transaction.getSubjectName());
+                    if (itemRepository.existsByNameIgnoreCase(name)) {
+                        throw new IllegalArgumentException("Ein Material mit diesem Namen gibt es bereits");
+                    }
+                    if (!onlyCaseChanged && transactionRepository.existsBySubjectNameIgnoreCaseAndTransactionTypeAndTransactionStatus(
+                            name, TransactionType.NEW, TransactionStatus.PENDING)) {
+                        throw new IllegalArgumentException("Für ein Material mit diesem Namen liegt bereits ein offener Antrag vor");
+                    }
+                    changes.add("Name " + transaction.getSubjectName() + " → " + name);
+                    transaction.setSubjectName(name);
+                }
+            }
+            if (edit.getPlace() != null) {
+                checkOptionalText(edit.getPlace(), "Der Lagerort", 255);
+                String place = edit.getPlace().isBlank() ? null : edit.getPlace().trim();
+                if (!Objects.equals(place, transaction.getProposedPlace())) {
+                    changes.add("Lagerort " + (transaction.getProposedPlace() == null ? "–" : transaction.getProposedPlace())
+                            + " → " + (place == null ? "–" : place));
+                    transaction.setProposedPlace(place);
+                }
+            }
+            if (edit.getCategoryId() != null && !edit.getCategoryId().equals(transaction.getProposedCategoryId())) {
+                Category category = categoryRepository.findById(edit.getCategoryId())
+                        .orElseThrow(() -> new NotFoundException("Category not found"));
+                changes.add("Kategorie " + transaction.getProposedCategoryName() + " → " + category.getName());
+                transaction.setProposedCategoryId(category.getId());
+                transaction.setProposedCategoryName(category.getName());
+            }
+            if (edit.getStockPrecision() != null && edit.getStockPrecision() != transaction.getProposedStockPrecision()) {
+                changes.add(edit.getStockPrecision() == StockPrecision.EXACT ? "Bestand genau gezählt" : "Bestand ungefähr");
+                transaction.setProposedStockPrecision(edit.getStockPrecision());
+            }
+            if (edit.getDescription() != null) {
+                checkOptionalText(edit.getDescription(), "Die Beschreibung", 255);
+                String description = edit.getDescription().isBlank() ? null : edit.getDescription().trim();
+                if (!Objects.equals(description, transaction.getProposedDescription())) {
+                    changes.add("Beschreibung geändert");
+                    transaction.setProposedDescription(description);
+                }
+            }
+        }
+
+        if (!changes.isEmpty()) {
+            transaction.setEditedByName(userService.getCurrentLoggedInUser().getUsername());
+            transactionRepository.save(transaction);
+            String requester = transaction.getUser() != null ? transaction.getUser().getUsername() : "ehemaligem Mitglied";
+            activityLog.record(logCategory(type), "Antrag bearbeitet: " + before + " (beantragt von " + requester + "): "
+                    + String.join(", ", changes));
+        }
+
+        return Response.builder()
+                .status(200)
+                .message(changes.isEmpty() ? "Nothing changed" : "Request updated")
+                .build();
+    }
+
+    private static String logCategory(TransactionType type) {
+        return switch (type) {
+            case ADD, USE -> ActivityLogService.STOCK;
+            case PHOTO -> ActivityLogService.PHOTO;
+            case NEW, DELETE -> ActivityLogService.MATERIAL;
+        };
+    }
+
     private static String requireText(String value, String messageIfMissing, int maxLength) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(messageIfMissing);
@@ -372,7 +483,7 @@ public class TransactionServiceImpl implements TransactionService {
         return switch (transaction.getTransactionType()) {
             case PHOTO -> "neues " + photo + " für \"" + itemName + "\"";
             case NEW -> "neues Material \"" + itemName + "\" aufnehmen (Bestand " + transaction.getTotalItems()
-                    + ", Lagerort " + transaction.getProposedPlace() + ")";
+                    + (transaction.getProposedPlace() != null ? ", Lagerort " + transaction.getProposedPlace() : "") + ")";
             case DELETE -> "Material \"" + itemName + "\" löschen";
             case ADD, USE -> (transaction.getTransactionType() == TransactionType.ADD ? "+ " : "− ")
                     + transaction.getTotalItems() + " × \"" + itemName + "\""
@@ -410,6 +521,9 @@ public class TransactionServiceImpl implements TransactionService {
             if (itemRepository.existsByNameIgnoreCase(name)) {
                 throw new IllegalArgumentException("Ein Material mit dem Namen \"" + name
                         + "\" gibt es inzwischen. Der Antrag kann nur noch abgelehnt werden.");
+            }
+            if (existingTransaction.getProposedPlace() == null || existingTransaction.getProposedPlace().isBlank()) {
+                throw new IllegalArgumentException("Es fehlt noch der Lagerort. Bitte den Antrag bearbeiten und einen eintragen.");
             }
             // Wurde die Kategorie inzwischen gelöscht und neu angelegt, zählt der Name.
             Category category = categoryRepository.findById(existingTransaction.getProposedCategoryId())

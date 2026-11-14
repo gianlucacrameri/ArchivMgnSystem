@@ -1,6 +1,7 @@
 package com.archiv.ArchivMgnSystem.services;
 
 import com.archiv.ArchivMgnSystem.dtos.Response;
+import com.archiv.ArchivMgnSystem.dtos.TransactionEditRequest;
 import com.archiv.ArchivMgnSystem.dtos.TransactionRequest;
 import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
 import com.archiv.ArchivMgnSystem.enums.StockPrecision;
@@ -16,6 +17,8 @@ public interface TransactionService {
     Response getAllTransactions(int page, int size, String filter);
 
     Response getMyTransactions();
+
+    Response editTransaction(Long transactionId, TransactionEditRequest edit);
 
     Response requestNewItem(String name, String place, Integer quantity, StockPrecision precision, Long categoryId,
                             String description, MultipartFile imageFile, String note);

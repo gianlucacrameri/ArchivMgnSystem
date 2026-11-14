@@ -106,6 +106,10 @@ export default function RequestsPage() {
           request={selected}
           processing={processingId === selected.id}
           onDecide={(status) => decide(selected.id, status)}
+          onEdited={(updated) => {
+            setPending((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+            setSelected(updated);
+          }}
           onClose={() => setSelected(null)}
         />
       )}

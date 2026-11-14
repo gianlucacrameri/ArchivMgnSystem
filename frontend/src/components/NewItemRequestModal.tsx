@@ -35,7 +35,7 @@ export default function NewItemRequestModal({ categories, onClose, onRequested }
     try {
       await requestNewItem({
         name: name.trim(),
-        place: place.trim(),
+        place: place.trim() || undefined,
         quantity: quantity === "" ? 0 : quantity,
         stockPrecision,
         categoryId,
@@ -65,8 +65,8 @@ export default function NewItemRequestModal({ categories, onClose, onRequested }
           <input required maxLength={255} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="field">
-          <span>Lagerort</span>
-          <input required maxLength={255} value={place} onChange={(e) => setPlace(e.target.value)} />
+          <span>Lagerort (optional)</span>
+          <input maxLength={255} value={place} onChange={(e) => setPlace(e.target.value)} />
         </label>
         <label className="field">
           <span>Kategorie</span>

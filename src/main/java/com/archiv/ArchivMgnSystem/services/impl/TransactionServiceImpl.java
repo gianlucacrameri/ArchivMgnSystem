@@ -4,12 +4,15 @@ import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.dtos.TransactionDTO;
 import com.archiv.ArchivMgnSystem.dtos.TransactionRequest;
 import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
+import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
 import com.archiv.ArchivMgnSystem.enums.TransactionType;
 import com.archiv.ArchivMgnSystem.exceptions.NotFoundException;
+import com.archiv.ArchivMgnSystem.models.Category;
 import com.archiv.ArchivMgnSystem.models.Item;
 import com.archiv.ArchivMgnSystem.models.Transaction;
 import com.archiv.ArchivMgnSystem.models.User;
+import com.archiv.ArchivMgnSystem.repositories.CategoryRepository;
 import com.archiv.ArchivMgnSystem.repositories.ItemRepository;
 import com.archiv.ArchivMgnSystem.repositories.TransactionRepository;
 import com.archiv.ArchivMgnSystem.services.ActivityLogService;
@@ -45,6 +48,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final ModelMapper modelMapper;
     private final TransactionRepository transactionRepository;
     private final ItemService itemService;
+    private final CategoryRepository categoryRepository;
     private final ActivityLogService activityLog;
 
     private static final int MAX_OWN_TRANSACTIONS = 100;
@@ -260,16 +264,120 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
+    @Override
+    public Response requestNewItem(String name, String place, Integer quantity, StockPrecision precision, Long categoryId,
+                                   String description, MultipartFile imageFile, String note) {
+        String trimmedName = requireText(name, "Bitte einen Namen angeben", 255);
+        String trimmedPlace = requireText(place, "Bitte einen Lagerort angeben", 255);
+        if (quantity == null || quantity < 0) {
+            throw new IllegalArgumentException("Bitte einen Bestand von 0 oder mehr angeben");
+        }
+        checkOptionalText(description, "Die Beschreibung", 255);
+        checkOptionalText(note, "Die Notiz", 255);
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new NotFoundException("Category not found"));
+
+        if (itemRepository.existsByNameIgnoreCase(trimmedName)) {
+            throw new IllegalArgumentException("Ein Material mit diesem Namen gibt es bereits");
+        }
+        if (transactionRepository.existsBySubjectNameIgnoreCaseAndTransactionTypeAndTransactionStatus(
+                trimmedName, TransactionType.NEW, TransactionStatus.PENDING)) {
+            throw new IllegalArgumentException("Für ein Material mit diesem Namen liegt bereits ein offener Antrag vor");
+        }
+
+        User user = userService.getCurrentLoggedInUser();
+        boolean hasPhoto = imageFile != null && !imageFile.isEmpty();
+        String imageUrl = hasPhoto ? itemService.storeImage(imageFile) : null;
+
+        Transaction transaction = Transaction.builder()
+                .transactionType(TransactionType.NEW)
+                .transactionStatus(TransactionStatus.PENDING)
+                .user(user)
+                .subjectName(trimmedName)
+                .totalItems(quantity)
+                .proposedPlace(trimmedPlace)
+                .proposedStockPrecision(precision != null ? precision : StockPrecision.EXACT)
+                .proposedCategoryId(category.getId())
+                .proposedCategoryName(category.getName())
+                .proposedDescription(description == null || description.isBlank() ? null : description.trim())
+                .proposedImageUrl(imageUrl)
+                .photoTarget(hasPhoto ? PhotoTarget.ITEM : null)
+                .note(note)
+                .build();
+        try {
+            transactionRepository.save(transaction);
+        } catch (RuntimeException e) {
+            itemService.deleteImagesAfterCommit(Arrays.asList(imageUrl));
+            throw e;
+        }
+        activityLog.record(ActivityLogService.MATERIAL, "Antrag gestellt: " + describe(transaction));
+
+        return Response.builder()
+                .status(200)
+                .message("Antrag eingereicht, wartet auf Freigabe durch einen Admin")
+                .build();
+    }
+
+    @Override
+    public Response requestItemDeletion(Long itemId, String note) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Item Not Found"));
+        checkOptionalText(note, "Die Begründung", 255);
+        if (transactionRepository.existsByItemIdAndTransactionTypeAndTransactionStatus(
+                item.getId(), TransactionType.DELETE, TransactionStatus.PENDING)) {
+            throw new IllegalArgumentException("Für dieses Material wurde das Löschen bereits beantragt");
+        }
+
+        User user = userService.getCurrentLoggedInUser();
+        Transaction transaction = Transaction.builder()
+                .transactionType(TransactionType.DELETE)
+                .transactionStatus(TransactionStatus.PENDING)
+                .item(item)
+                .user(user)
+                .subjectName(item.getName())
+                .totalItems(0)
+                .note(note)
+                .build();
+        transactionRepository.save(transaction);
+        activityLog.record(ActivityLogService.MATERIAL, "Antrag gestellt: " + describe(transaction));
+
+        return Response.builder()
+                .status(200)
+                .message("Antrag eingereicht, wartet auf Freigabe durch einen Admin")
+                .build();
+    }
+
+    private static String requireText(String value, String messageIfMissing, int maxLength) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(messageIfMissing);
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() > maxLength) {
+            throw new IllegalArgumentException("Die Eingabe ist zu lang (höchstens " + maxLength + " Zeichen)");
+        }
+        return trimmed;
+    }
+
+    private static void checkOptionalText(String value, String label, int maxLength) {
+        if (value != null && value.length() > maxLength) {
+            throw new IllegalArgumentException(label + " ist zu lang (höchstens " + maxLength + " Zeichen)");
+        }
+    }
+
     /** Kurzbeschreibung eines Antrags für den Verlauf, z.B. "+ 3 × Fussball". */
     private String describe(Transaction transaction) {
-        String itemName = transaction.getItem() != null ? transaction.getItem().getName() : "?";
+        String itemName = transaction.getItem() != null ? transaction.getItem().getName()
+                : transaction.getSubjectName() != null ? transaction.getSubjectName() : "?";
         String photo = transaction.getPhotoTarget() == PhotoTarget.LOCATION ? "Lagerort-Foto" : "Foto";
-        if (transaction.getTransactionType() == TransactionType.PHOTO) {
-            return "neues " + photo + " für \"" + itemName + "\"";
-        }
-        return (transaction.getTransactionType() == TransactionType.ADD ? "+ " : "− ")
-                + transaction.getTotalItems() + " × \"" + itemName + "\""
-                + (transaction.getProposedImageUrl() != null ? " mit neuem " + photo : "");
+        return switch (transaction.getTransactionType()) {
+            case PHOTO -> "neues " + photo + " für \"" + itemName + "\"";
+            case NEW -> "neues Material \"" + itemName + "\" aufnehmen (Bestand " + transaction.getTotalItems()
+                    + ", Lagerort " + transaction.getProposedPlace() + ")";
+            case DELETE -> "Material \"" + itemName + "\" löschen";
+            case ADD, USE -> (transaction.getTransactionType() == TransactionType.ADD ? "+ " : "− ")
+                    + transaction.getTotalItems() + " × \"" + itemName + "\""
+                    + (transaction.getProposedImageUrl() != null ? " mit neuem " + photo : "");
+        };
     }
 
     @Override
@@ -286,15 +394,42 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         Item item = existingTransaction.getItem();
-        boolean isPhoto = existingTransaction.getTransactionType() == TransactionType.PHOTO;
+        TransactionType type = existingTransaction.getTransactionType();
+        boolean changesStock = type == TransactionType.ADD || type == TransactionType.USE;
+        boolean approved = status == TransactionStatus.COMPLETED;
         String proposed = existingTransaction.getProposedImageUrl();
-        // Beschreibung vor der Entscheidung festhalten (bei Ablehnung entfällt das Foto).
+        String requester = existingTransaction.getUser() != null
+                ? existingTransaction.getUser().getUsername() : "ehemaligem Mitglied";
+        // Beschreibung vor der Entscheidung festhalten (danach fehlen Foto bzw. Material).
         String description = describe(existingTransaction);
         String outcome = "";
+        Long itemToDelete = null;
 
-        if (status == TransactionStatus.COMPLETED) {
-            if (!isPhoto) {
-                int delta = existingTransaction.getTransactionType() == TransactionType.ADD
+        if (approved && type == TransactionType.NEW) {
+            String name = existingTransaction.getSubjectName();
+            if (itemRepository.existsByNameIgnoreCase(name)) {
+                throw new IllegalArgumentException("Ein Material mit dem Namen \"" + name
+                        + "\" gibt es inzwischen. Der Antrag kann nur noch abgelehnt werden.");
+            }
+            // Wurde die Kategorie inzwischen gelöscht und neu angelegt, zählt der Name.
+            Category category = categoryRepository.findById(existingTransaction.getProposedCategoryId())
+                    .or(() -> categoryRepository.findFirstByNameIgnoreCase(existingTransaction.getProposedCategoryName()))
+                    .orElseThrow(() -> new IllegalArgumentException("Die Kategorie \""
+                            + existingTransaction.getProposedCategoryName()
+                            + "\" gibt es nicht mehr. Bitte zuerst wieder anlegen oder den Antrag ablehnen."));
+            Item created = itemService.createFromProposal(name, existingTransaction.getProposedPlace(),
+                    existingTransaction.getTotalItems(), existingTransaction.getProposedStockPrecision(), category,
+                    existingTransaction.getProposedDescription(), proposed, requester);
+            existingTransaction.setItem(created);
+            outcome = ", Artikelnummer " + created.getSku();
+        } else if (approved && type == TransactionType.DELETE) {
+            // Der Antrag selbst soll erhalten bleiben: erst vom Material lösen,
+            // dann das Material samt seinen übrigen Anträgen löschen (siehe unten).
+            itemToDelete = item.getId();
+            existingTransaction.setItem(null);
+        } else if (approved) {
+            if (changesStock) {
+                int delta = type == TransactionType.ADD
                         ? existingTransaction.getTotalItems()
                         : -existingTransaction.getTotalItems();
 
@@ -329,11 +464,15 @@ public class TransactionServiceImpl implements TransactionService {
         existingTransaction.setUpdatedAt(LocalDateTime.now());
         transactionRepository.save(existingTransaction);
 
-        String requester = existingTransaction.getUser() != null
-                ? existingTransaction.getUser().getUsername() : "ehemaligem Mitglied";
-        activityLog.record(isPhoto ? ActivityLogService.PHOTO : ActivityLogService.STOCK,
-                "Antrag " + (status == TransactionStatus.COMPLETED ? "freigegeben" : "abgelehnt") + ": "
-                        + description + " (beantragt von " + requester + ")" + outcome);
+        String logCategory = changesStock ? ActivityLogService.STOCK
+                : type == TransactionType.PHOTO ? ActivityLogService.PHOTO : ActivityLogService.MATERIAL;
+        activityLog.record(logCategory, "Antrag " + (approved ? "freigegeben" : "abgelehnt") + ": "
+                + description + " (beantragt von " + requester + ")" + outcome);
+
+        if (itemToDelete != null) {
+            transactionRepository.flush();
+            itemService.deleteItem(itemToDelete);
+        }
 
         return Response.builder()
                 .status(200)

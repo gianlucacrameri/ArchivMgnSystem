@@ -1,6 +1,7 @@
 package com.archiv.ArchivMgnSystem.repositories;
 
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
+import com.archiv.ArchivMgnSystem.enums.TransactionType;
 import com.archiv.ArchivMgnSystem.models.Transaction;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -19,6 +20,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     void deleteByItemCategoryId(Long categoryId);
 
     long countByTransactionStatus(TransactionStatus transactionStatus);
+
+    boolean existsByItemIdAndTransactionTypeAndTransactionStatus(long itemId, TransactionType transactionType, TransactionStatus transactionStatus);
+
+    boolean existsBySubjectNameIgnoreCaseAndTransactionTypeAndTransactionStatus(String subjectName, TransactionType transactionType, TransactionStatus transactionStatus);
 
     /** Fotos aus Foto-Anträgen zu einem Material - müssen mit dem Material gelöscht werden. */
     @Query("SELECT t.proposedImageUrl FROM Transaction t WHERE t.item.id = :itemId AND t.proposedImageUrl IS NOT NULL")

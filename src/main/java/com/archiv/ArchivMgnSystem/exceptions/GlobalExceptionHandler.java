@@ -12,6 +12,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartException;
@@ -78,7 +79,8 @@ public class GlobalExceptionHandler {
 
     // Falscher Wert in einem Parameter (z.B. unbekannte Auswahl) oder eine
     // Anfrage ohne die erwartete Datei: Fehler des Aufrufers, kein Serverfehler.
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MultipartException.class})
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MultipartException.class,
+            MissingServletRequestParameterException.class})
     public ResponseEntity<Response> handleBadParameter(Exception e) {
         return respond(HttpStatus.BAD_REQUEST, "Ungültige Anfrage");
     }

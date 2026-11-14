@@ -1015,3 +1015,17 @@ textarea:focus {
   font-size: 14px;
   white-space: nowrap;
 }
+
+/* Lange Titel im Fenster umbrechen statt unter den Schliessen-Knopf zu laufen */
+.modal-panel__header {
+  gap: 12px;
+}
+
+.modal-panel__header > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.modal-panel__close {
+  flex-shrink: 0;
+}

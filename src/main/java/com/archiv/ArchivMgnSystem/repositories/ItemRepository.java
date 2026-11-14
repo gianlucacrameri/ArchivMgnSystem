@@ -14,4 +14,6 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
      */
     @Query(value = "SELECT COALESCE(MAX(CAST(SUBSTRING(sku, 5) AS UNSIGNED)), -1) FROM items WHERE sku LIKE 'ART-%'", nativeQuery = true)
     int findHighestArticleNumber();
+
+    boolean existsByNameIgnoreCase(String name);
 }

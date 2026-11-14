@@ -3,6 +3,7 @@ package com.archiv.ArchivMgnSystem.controllers;
 import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.dtos.TransactionRequest;
 import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
+import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
 import com.archiv.ArchivMgnSystem.enums.TransactionType;
 import org.springframework.web.multipart.MultipartFile;
@@ -54,6 +55,29 @@ public class TransactionController {
             @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
             @RequestParam(value = "note", required = false) String note) {
         return ResponseEntity.ok(transactionService.request(itemId, type, quantity, target, imageFile, note));
+    }
+
+    /** Mitglied schlägt vor, ein neues Material ins Archiv aufzunehmen; ein Admin entscheidet. */
+    @PostMapping("/new-item")
+    public ResponseEntity<Response> requestNewItem(
+            @RequestParam("name") String name,
+            @RequestParam("place") String place,
+            @RequestParam("quantity") Integer quantity,
+            @RequestParam(value = "stockPrecision", required = false) StockPrecision stockPrecision,
+            @RequestParam("categoryId") Long categoryId,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
+            @RequestParam(value = "note", required = false) String note) {
+        return ResponseEntity.ok(transactionService.requestNewItem(
+                name, place, quantity, stockPrecision, categoryId, description, imageFile, note));
+    }
+
+    /** Mitglied schlägt vor, ein Material aus dem Archiv zu löschen; ein Admin entscheidet. */
+    @PostMapping("/delete-item")
+    public ResponseEntity<Response> requestItemDeletion(
+            @RequestParam("itemId") Long itemId,
+            @RequestParam(value = "note", required = false) String note) {
+        return ResponseEntity.ok(transactionService.requestItemDeletion(itemId, note));
     }
 
     @GetMapping("/all")

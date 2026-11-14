@@ -2,6 +2,7 @@ package com.archiv.ArchivMgnSystem.dtos;
 
 
 import com.archiv.ArchivMgnSystem.enums.PhotoTarget;
+import com.archiv.ArchivMgnSystem.enums.StockPrecision;
 import com.archiv.ArchivMgnSystem.enums.TransactionStatus;
 import com.archiv.ArchivMgnSystem.enums.TransactionType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -39,6 +40,12 @@ public class TransactionDTO {
     private String proposedImageUrl;
     private PhotoTarget photoTarget;
     private String decidedByName;
+    private String subjectName;
+    private String proposedPlace;
+    private String proposedDescription;
+    private Long proposedCategoryId;
+    private String proposedCategoryName;
+    private StockPrecision proposedStockPrecision;
     private LocalDateTime updatedAt;
     private LocalDateTime createdAt;
 

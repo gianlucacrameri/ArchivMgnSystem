@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import type { CategoryDTO, ItemDTO, PhotoTarget, StockPrecision, TransactionType } from "../types";
 import Modal from "./Modal";
 import NumberField from "./NumberField";
-import AuthenticatedImage from "./AuthenticatedImage";
+import PhotoGallery, { itemPhotos } from "./PhotoGallery";
 import { submitRequest as sendRequest } from "../api/transactions";
 import { deleteItem, updateItem } from "../api/items";
 import { ApiError } from "../api/client";
@@ -111,19 +111,7 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
 
   return (
     <Modal title={item.name} onClose={onClose}>
-      <div className="item-detail__image">
-        <AuthenticatedImage src={item.imageUrl} alt={item.name} size="medium" className="item-detail__img" />
-      </div>
-
-      {item.locationImageUrl && !editMode && (
-        <>
-          <p className="hint">Lagerort-Foto</p>
-          <br/>
-          <div className="item-detail__image">
-            <AuthenticatedImage src={item.locationImageUrl} alt={`Lagerort von ${item.name}`} size="medium" className="item-detail__img" />
-          </div>
-        </>
-      )}
+      <PhotoGallery photos={itemPhotos(item)} />
 
       {!editMode && (
         <>

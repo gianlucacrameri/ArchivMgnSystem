@@ -4,6 +4,7 @@ import NumberField from "./NumberField";
 import { fetchCategories } from "../api/categories";
 import Modal from "./Modal";
 import AuthenticatedImage from "./AuthenticatedImage";
+import PhotoGallery, { itemPhotos } from "./PhotoGallery";
 import { editTransaction, fetchTransaction } from "../api/transactions";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
@@ -172,11 +173,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
           </p>
         )}
 
-        {!hasPhoto && !isNew && item?.imageUrl && (
-          <div className="item-detail__image">
-            <AuthenticatedImage src={item.imageUrl} alt={item.name} size="medium" className="item-detail__img" />
-          </div>
-        )}
+        {!hasPhoto && !isNew && item && itemPhotos(item).length > 0 && <PhotoGallery photos={itemPhotos(item)} />}
 
         {editing && (
           <form onSubmit={handleEditSubmit} className="stacked-form">

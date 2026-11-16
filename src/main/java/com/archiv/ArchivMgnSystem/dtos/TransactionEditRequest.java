@@ -22,4 +22,6 @@ public class TransactionEditRequest {
     private Long categoryId;
     private StockPrecision stockPrecision;
     private String description;
+    /** JJJJ-MM-TT; leer = Ablaufdatum entfernen, nicht gesetzt = unverändert. */
+    private String expirationDate;
 }

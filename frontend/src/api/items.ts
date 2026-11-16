@@ -35,10 +35,13 @@ export async function createItem(input: {
   stockPrecision: StockPrecision;
   categoryId: number;
   description?: string;
+  /** JJJJ-MM-TT, nur für Kategorien mit Ablaufdatum. */
+  expirationDate?: string;
   imageFile?: File | null;
   locationImageFile?: File | null;
 }): Promise<void> {
   const form = new FormData();
+  if (input.expirationDate) form.set("expirationDate", input.expirationDate);
   form.set("name", input.name);
   form.set("place", input.place);
   form.set("stockQuantity", String(input.stockQuantity));
@@ -61,10 +64,13 @@ export async function updateItem(input: {
   stockPrecision?: StockPrecision;
   categoryId?: number;
   description?: string;
+  /** JJJJ-MM-TT; leerer Text entfernt das Datum, nicht gesetzt lässt es unverändert. */
+  expirationDate?: string;
   imageFile?: File | null;
   locationImageFile?: File | null;
 }): Promise<void> {
   const form = new FormData();
+  if (input.expirationDate !== undefined) form.set("expirationDate", input.expirationDate);
   form.set("itemId", String(input.itemId));
   if (input.name) form.set("name", input.name);
   if (input.place) form.set("place", input.place);

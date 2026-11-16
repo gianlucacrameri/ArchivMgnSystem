@@ -218,6 +218,21 @@ Einträge werden als Text gespeichert und bleiben lesbar, auch wenn das
 Material oder das Mitglied später gelöscht wird. Der Verlauf beginnt mit
 diesem Update – frühere Vorgänge sind nicht enthalten.
 
+## Ablaufdatum
+
+Kategorien haben die Eigenschaft „Material kann ablaufen". Beim Anlegen
+schlägt die Seite sie anhand des Namens vor (Essen, Getränke, Lebensmittel,
+Verpflegung, Snacks, Erste Hilfe …); ein Admin kann sie unter **Kategorien**
+pro Kategorie ein- oder ausschalten. Bestehende Kategorien erhalten beim
+ersten Start denselben Startwert.
+
+Für Material solcher Kategorien lässt sich optional ein Ablaufdatum angeben –
+beim Anlegen und Bearbeiten durch Admins sowie in Anträgen von Mitgliedern
+auf neues Material (`expirationDate` im Format `JJJJ-MM-TT`). Im Archiv
+erscheint ein Hinweis, wenn etwas in den nächsten 30 Tagen abläuft oder
+bereits abgelaufen ist. Wechselt ein Material in eine Kategorie ohne
+Ablaufdatum, wird das Datum entfernt.
+
 ## Events & Reservationen
 
 - `POST /api/events` – eigenes Event anlegen (Name, Zeitraum, Beschreibung).

@@ -6,6 +6,7 @@ import { createItem } from "../api/items";
 import { createCategory } from "../api/categories";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import { looksPerishable } from "../utils/expiry";
 
 interface Props {
   categories: CategoryDTO[];
@@ -23,9 +24,17 @@ export default function CreateItemModal({ categories, onClose, onCreated }: Prop
   const [creatingCategory, setCreatingCategory] = useState(categories.length === 0);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [description, setDescription] = useState("");
+  const [expirationDate, setExpirationDate] = useState("");
+  const [newCategoryPerishable, setNewCategoryPerishable] = useState<boolean | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [locationImageFile, setLocationImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Ein Ablaufdatum gibt es nur für Kategorien, deren Material verderben kann.
+  const newCategoryPerishableValue = newCategoryPerishable ?? looksPerishable(newCategoryName);
+  const perishable = creatingCategory
+    ? newCategoryPerishableValue
+    : !!categories.find((c) => c.id === categoryId)?.perishable;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -45,7 +54,7 @@ export default function CreateItemModal({ categories, onClose, onCreated }: Prop
     setSaving(true);
     try {
       if (creatingCategory) {
-        const created = await createCategory(newCategoryName.trim());
+        const created = await createCategory(newCategoryName.trim(), newCategoryPerishableValue);
         resolvedCategoryId = created.id;
       }
 
@@ -56,6 +65,7 @@ export default function CreateItemModal({ categories, onClose, onCreated }: Prop
         stockPrecision,
         categoryId: resolvedCategoryId as number,
         description: description || undefined,
+        expirationDate: perishable && expirationDate ? expirationDate : undefined,
         imageFile,
         locationImageFile,
       });
@@ -114,6 +124,14 @@ export default function CreateItemModal({ categories, onClose, onCreated }: Prop
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 autoFocus
               />
+              <label className="check-field">
+                <input
+                  type="checkbox"
+                  checked={newCategoryPerishableValue}
+                  onChange={(e) => setNewCategoryPerishable(e.target.checked)}
+                />
+                <span>Material kann ablaufen (Ablaufdatum möglich)</span>
+              </label>
               {categories.length > 0 && (
                 <button type="button" className="btn btn--link" onClick={() => setCreatingCategory(false)}>
                   Bestehende Kategorie wählen
@@ -122,6 +140,13 @@ export default function CreateItemModal({ categories, onClose, onCreated }: Prop
             </>
           )}
         </div>
+
+        {perishable && (
+          <label className="field">
+            <span>Ablaufdatum (optional)</span>
+            <input type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} />
+          </label>
+        )}
 
         <label className="field">
           <span>Anfangsbestand</span>

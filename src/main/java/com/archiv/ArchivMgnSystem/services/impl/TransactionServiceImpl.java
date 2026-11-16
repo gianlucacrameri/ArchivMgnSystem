@@ -1,5 +1,6 @@
 package com.archiv.ArchivMgnSystem.services.impl;
 
+import com.archiv.ArchivMgnSystem.config.ExpirationDates;
 import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.dtos.TransactionDTO;
 import com.archiv.ArchivMgnSystem.dtos.TransactionEditRequest;
@@ -37,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -192,6 +194,10 @@ public class TransactionServiceImpl implements TransactionService {
         if (transactionDTO.getUser() != null) {
             transactionDTO.getUser().setTransactions(null);
         }
+        if (transaction.getProposedCategoryId() != null) {
+            transactionDTO.setProposedCategoryPerishable(categoryRepository.findById(transaction.getProposedCategoryId())
+                    .map(category -> Boolean.TRUE.equals(category.getPerishable())).orElse(false));
+        }
 
         return Response.builder()
                 .status(200)
@@ -287,7 +293,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public Response requestNewItem(String name, String place, Integer quantity, StockPrecision precision, Long categoryId,
-                                   String description, MultipartFile imageFile, String note) {
+                                   String description, MultipartFile imageFile, String note, String expirationDate) {
         String trimmedName = requireText(name, "Bitte einen Namen angeben", 255);
         // Der Lagerort darf beim Antrag offen bleiben - spätestens der Admin trägt ihn vor der Freigabe ein.
         checkOptionalText(place, "Der Lagerort", 255);
@@ -300,6 +306,10 @@ public class TransactionServiceImpl implements TransactionService {
         checkOptionalText(note, "Die Notiz", 255);
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new NotFoundException("Category not found"));
+
+        // Ein Ablaufdatum wird nur übernommen, wenn die Kategorie es vorsieht.
+        LocalDate proposedExpiration = Boolean.TRUE.equals(category.getPerishable())
+                ? ExpirationDates.parseDate(expirationDate) : null;
 
         if (itemRepository.existsByNameIgnoreCase(trimmedName)) {
             throw new IllegalArgumentException("Ein Material mit diesem Namen gibt es bereits");
@@ -324,6 +334,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .proposedStockPrecision(precision != null ? precision : StockPrecision.EXACT)
                 .proposedCategoryId(category.getId())
                 .proposedCategoryName(category.getName())
+                .proposedExpirationDate(proposedExpiration)
                 .proposedDescription(description == null || description.isBlank() ? null : description.trim())
                 .proposedImageUrl(imageUrl)
                 .photoTarget(hasPhoto ? PhotoTarget.ITEM : null)
@@ -443,6 +454,13 @@ public class TransactionServiceImpl implements TransactionService {
                 changes.add("Kategorie " + transaction.getProposedCategoryName() + " → " + category.getName());
                 transaction.setProposedCategoryId(category.getId());
                 transaction.setProposedCategoryName(category.getName());
+            }
+            if (edit.getExpirationDate() != null) {
+                LocalDate expiration = ExpirationDates.parseDate(edit.getExpirationDate());
+                if (!Objects.equals(expiration, transaction.getProposedExpirationDate())) {
+                    changes.add(expiration == null ? "Ablaufdatum entfernt" : "Ablaufdatum → " + ExpirationDates.format(expiration));
+                    transaction.setProposedExpirationDate(expiration);
+                }
             }
             if (edit.getStockPrecision() != null && edit.getStockPrecision() != transaction.getProposedStockPrecision()) {
                 changes.add(edit.getStockPrecision() == StockPrecision.EXACT ? "Bestand genau gezählt" : "Bestand ungefähr");
@@ -576,7 +594,8 @@ public class TransactionServiceImpl implements TransactionService {
                             + "\" gibt es nicht mehr. Bitte zuerst wieder anlegen oder den Antrag ablehnen."));
             Item created = itemService.createFromProposal(name, existingTransaction.getProposedPlace(),
                     existingTransaction.getTotalItems(), existingTransaction.getProposedStockPrecision(), category,
-                    existingTransaction.getProposedDescription(), proposed, requester);
+                    existingTransaction.getProposedDescription(), proposed, requester,
+                    existingTransaction.getProposedExpirationDate());
             existingTransaction.setItem(created);
             outcome = ", Artikelnummer " + created.getSku();
         } else if (approved && type == TransactionType.DELETE) {

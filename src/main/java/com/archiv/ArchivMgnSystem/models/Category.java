@@ -25,6 +25,12 @@ public class Category {
     @NotBlank(message = "Name is required")
     private String name;
 
+    /**
+     * Material dieser Kategorie kann verderben und darf ein Ablaufdatum haben.
+     * Leer nur bei Kategorien aus älteren Versionen, bis der Startwert gesetzt ist.
+     */
+    private Boolean perishable;
+
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
     private List<Item> items;
 

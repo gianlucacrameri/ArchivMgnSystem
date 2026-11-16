@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import type { CategoryDTO } from "../types";
 import Modal from "./Modal";
-import { createCategory, deleteCategory, renameCategory } from "../api/categories";
+import { createCategory, deleteCategory, renameCategory, setCategoryPerishable } from "../api/categories";
+import { looksPerishable } from "../utils/expiry";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
 
@@ -14,6 +15,9 @@ interface Props {
 export default function CategoriesModal({ categories, onClose, onChanged }: Props) {
   const { showSuccess, showError } = useToast();
   const [newName, setNewName] = useState("");
+  // Vorschlag aus dem Namen (Essen, Getränke, ...), bis der Admin das Häkchen selbst setzt.
+  const [newPerishable, setNewPerishable] = useState<boolean | null>(null);
+  const newPerishableValue = newPerishable ?? looksPerishable(newName);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -23,8 +27,9 @@ export default function CategoriesModal({ categories, onClose, onChanged }: Prop
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      await createCategory(newName.trim());
+      await createCategory(newName.trim(), newPerishableValue);
       setNewName("");
+      setNewPerishable(null);
       showSuccess("Kategorie angelegt");
       onChanged();
     } catch (err) {
@@ -43,6 +48,15 @@ export default function CategoriesModal({ categories, onClose, onChanged }: Prop
       onChanged();
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Umbenennen fehlgeschlagen");
+    }
+  }
+
+  async function handleTogglePerishable(category: CategoryDTO, perishable: boolean) {
+    try {
+      await setCategoryPerishable(category, perishable);
+      onChanged();
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Änderung fehlgeschlagen");
     }
   }
 
@@ -66,6 +80,14 @@ export default function CategoriesModal({ categories, onClose, onChanged }: Prop
           <span>Neue Kategorie</span>
           <input value={newName} onChange={(e) => setNewName(e.target.value)} />
         </label>
+        <label className="check-field">
+          <input
+            type="checkbox"
+            checked={newPerishableValue}
+            onChange={(e) => setNewPerishable(e.target.checked)}
+          />
+          <span>Material kann ablaufen (Ablaufdatum möglich)</span>
+        </label>
         <button type="submit" className="btn btn--primary" disabled={saving}>
           {saving ? "Wird angelegt…" : "+ Kategorie anlegen"}
         </button>
@@ -88,7 +110,17 @@ export default function CategoriesModal({ categories, onClose, onChanged }: Prop
               </div>
             ) : (
               <div className="pick-list__item pick-list__item--selected">
-                <span className="pick-list__info">{c.name}</span>
+                <span className="pick-list__info">
+                  <strong>{c.name}</strong>
+                  <label className="check-field check-field--small">
+                    <input
+                      type="checkbox"
+                      checked={!!c.perishable}
+                      onChange={(e) => handleTogglePerishable(c, e.target.checked)}
+                    />
+                    <span>mit Ablaufdatum</span>
+                  </label>
+                </span>
                 <button
                   type="button"
                   className="btn btn--link"

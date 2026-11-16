@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -65,6 +66,7 @@ public class Transaction {
     private String proposedDescription;
     private Long proposedCategoryId;
     private String proposedCategoryName;
+    private LocalDate proposedExpirationDate;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)

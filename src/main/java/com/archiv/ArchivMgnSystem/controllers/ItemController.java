@@ -1,5 +1,6 @@
 package com.archiv.ArchivMgnSystem.controllers;
 
+import com.archiv.ArchivMgnSystem.config.ExpirationDates;
 import com.archiv.ArchivMgnSystem.dtos.ItemDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.enums.ImageSize;
@@ -35,9 +36,11 @@ public class ItemController {
             @RequestParam(value = "stockPrecision", required = false)StockPrecision stockPrecision,
             @RequestParam("categoryId")Long categoryId,
             @RequestParam("place")String place,
-            @RequestParam(value = "description", required = false)String description
+            @RequestParam(value = "description", required = false)String description,
+            @RequestParam(value = "expirationDate", required = false)String expirationDate
             ) {
         ItemDTO itemDTO = new ItemDTO();
+        itemDTO.setExpirationDate(ExpirationDates.parse(expirationDate));
         itemDTO.setName(name);
         itemDTO.setPlace(place);
         itemDTO.setDescription(description);
@@ -60,9 +63,13 @@ public class ItemController {
             @RequestParam(value = "categoryId", required = false)Long categoryId,
             @RequestParam("itemId")Long itemId,
             @RequestParam(value = "place", required = false)String place,
-            @RequestParam(value = "description", required = false)String description
+            @RequestParam(value = "description", required = false)String description,
+            @RequestParam(value = "expirationDate", required = false)String expirationDate
             ) {
         ItemDTO itemDTO = new ItemDTO();
+        // nicht mitgeschickt = unverändert, leer = Datum entfernen
+        itemDTO.setExpirationDate(ExpirationDates.parse(expirationDate));
+        itemDTO.setClearExpirationDate(expirationDate != null && expirationDate.isBlank());
         itemDTO.setName(name);
         itemDTO.setPlace(place);
         itemDTO.setItemId(itemId);

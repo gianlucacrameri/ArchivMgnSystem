@@ -1029,3 +1029,156 @@ textarea:focus {
 .modal-panel__close {
   flex-shrink: 0;
 }
+
+/* ---------- Häkchen mit Beschriftung ---------- */
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.check-field input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+
+.check-field--small {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.item-card__body .badge + .badge {
+  margin-top: 4px;
+}
+
+/* ---------- Foto-Galerie zum Wischen ---------- */
+.gallery {
+  margin-bottom: 14px;
+}
+
+.gallery__stage {
+  position: relative;
+}
+
+.gallery__track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  border-radius: var(--radius-md);
+  background: #0f2437;
+}
+
+.gallery__track::-webkit-scrollbar {
+  display: none;
+}
+
+.gallery__track:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.gallery__slide {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  aspect-ratio: 4 / 3;
+  display: flex;
+}
+
+/* Ganzes Foto zeigen statt beschneiden - Hochformat vom Handy bleibt vollständig. */
+.gallery__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.gallery__img.image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  background: var(--color-neutral-bg);
+}
+
+.gallery__label {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(8, 18, 28, 0.72);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.gallery__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(8, 18, 28, 0.72);
+  color: var(--color-text);
+  font-size: 26px;
+  line-height: 1;
+  padding: 0 0 4px;
+  cursor: pointer;
+}
+
+.gallery__arrow--prev {
+  left: 8px;
+}
+
+.gallery__arrow--next {
+  right: 8px;
+}
+
+.gallery__arrow:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.gallery__thumbs {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.gallery__thumb {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-neutral-bg);
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+.gallery__thumb.is-active {
+  border-color: var(--color-primary);
+  opacity: 1;
+}
+
+.gallery__thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}

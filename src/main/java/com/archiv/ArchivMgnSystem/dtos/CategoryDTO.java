@@ -26,6 +26,9 @@ public class CategoryDTO {
     @NotBlank(message = "Name is required")
     private String name;
 
+    /** true = Material dieser Kategorie darf ein Ablaufdatum haben. */
+    private Boolean perishable;
+
     private List<Item> items;
 
 

@@ -4,10 +4,12 @@ import NumberField from "./NumberField";
 import { fetchCategories } from "../api/categories";
 import Modal from "./Modal";
 import AuthenticatedImage from "./AuthenticatedImage";
+import PhotoGallery, { itemPhotos } from "./PhotoGallery";
 import { editTransaction, fetchTransaction } from "../api/transactions";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { describeRequest, formatDateTime } from "../utils/describeRequest";
+import { formatExpiryDate, toDateInputValue } from "../utils/expiry";
 
 interface Props {
   /** Der Antrag aus der Liste; die vollständigen Angaben werden nachgeladen. */
@@ -47,6 +49,8 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
   const [editPrecision, setEditPrecision] = useState<StockPrecision>("EXACT");
   const [editDescription, setEditDescription] = useState("");
   const [editPhotoTarget, setEditPhotoTarget] = useState<PhotoTarget>("ITEM");
+  const [editExpirationDate, setEditExpirationDate] = useState("");
+  const editCategoryPerishable = !!categories.find((c) => c.id === editCategoryId)?.perishable;
 
   async function startEditing() {
     setEditQuantity(detail.totalItems);
@@ -56,6 +60,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
     setEditPrecision(detail.proposedStockPrecision ?? "EXACT");
     setEditDescription(detail.proposedDescription ?? "");
     setEditPhotoTarget(detail.photoTarget ?? "ITEM");
+    setEditExpirationDate(toDateInputValue(detail.proposedExpirationDate));
     if (detail.transactionType === "NEW") {
       try {
         setCategories(await fetchCategories());
@@ -82,6 +87,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
               categoryId: editCategoryId === "" ? undefined : editCategoryId,
               stockPrecision: editPrecision,
               description: editDescription.trim(),
+              expirationDate: editCategoryPerishable ? editExpirationDate : "",
             }
           : {}),
       });
@@ -167,11 +173,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
           </p>
         )}
 
-        {!hasPhoto && !isNew && item?.imageUrl && (
-          <div className="item-detail__image">
-            <AuthenticatedImage src={item.imageUrl} alt={item.name} size="medium" className="item-detail__img" />
-          </div>
-        )}
+        {!hasPhoto && !isNew && item && itemPhotos(item).length > 0 && <PhotoGallery photos={itemPhotos(item)} />}
 
         {editing && (
           <form onSubmit={handleEditSubmit} className="stacked-form">
@@ -199,6 +201,12 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
                   </select>
                 </label>
               </>
+            )}
+            {isNew && editCategoryPerishable && (
+              <label className="field">
+                <span>Ablaufdatum (optional)</span>
+                <input type="date" value={editExpirationDate} onChange={(e) => setEditExpirationDate(e.target.value)} />
+              </label>
             )}
             {(isNew || changesStock) && (
               <label className="field">
@@ -307,6 +315,12 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
                 </dd>
               </div>
             </>
+          )}
+          {isNew && detail.proposedExpirationDate && (
+            <div>
+              <dt>Ablaufdatum</dt>
+              <dd>{formatExpiryDate(detail.proposedExpirationDate)}</dd>
+            </div>
           )}
           {isDelete && item && (
             <div>

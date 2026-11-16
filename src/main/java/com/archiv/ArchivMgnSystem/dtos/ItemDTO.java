@@ -2,6 +2,7 @@ package com.archiv.ArchivMgnSystem.dtos;
 
 
 import com.archiv.ArchivMgnSystem.enums.StockPrecision;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
@@ -39,6 +40,9 @@ public class ItemDTO {
 
 
     private LocalDateTime expirationDate;
+    /** Nur beim Bearbeiten: true = ein vorhandenes Ablaufdatum entfernen. */
+    @JsonIgnore
+    private boolean clearExpirationDate;
     private String description;
     private String imageUrl;
     private String locationImageUrl;

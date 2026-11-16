@@ -2,13 +2,14 @@ import { useState, type FormEvent } from "react";
 import type { CategoryDTO, ItemDTO, PhotoTarget, StockPrecision, TransactionType } from "../types";
 import Modal from "./Modal";
 import NumberField from "./NumberField";
-import AuthenticatedImage from "./AuthenticatedImage";
+import PhotoGallery, { itemPhotos } from "./PhotoGallery";
 import { submitRequest as sendRequest } from "../api/transactions";
 import { deleteItem, updateItem } from "../api/items";
 import { ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import DeleteRequestModal from "./DeleteRequestModal";
+import { expiryStatus, formatExpiryDate, toDateInputValue } from "../utils/expiry";
 
 interface Props {
   item: ItemDTO;
@@ -35,6 +36,8 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
   const [editCategoryId, setEditCategoryId] = useState(item.categoryId);
   const [editDescription, setEditDescription] = useState(item.description ?? "");
   const [editStockPrecision, setEditStockPrecision] = useState<StockPrecision>(item.stockPrecision ?? "EXACT");
+  const [editExpirationDate, setEditExpirationDate] = useState(toDateInputValue(item.expirationDate));
+  const editCategoryPerishable = !!categories.find((c) => c.id === editCategoryId)?.perishable;
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editLocationImageFile, setEditLocationImageFile] = useState<File | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -75,6 +78,8 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
         categoryId: editCategoryId,
         description: editDescription,
         stockPrecision: editStockPrecision,
+        // leer = Datum entfernen (auch wenn die Kategorie kein Ablaufdatum mehr vorsieht)
+        expirationDate: editCategoryPerishable ? editExpirationDate : "",
         imageFile: editImageFile,
         locationImageFile: editLocationImageFile,
       });
@@ -106,19 +111,7 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
 
   return (
     <Modal title={item.name} onClose={onClose}>
-      <div className="item-detail__image">
-        <AuthenticatedImage src={item.imageUrl} alt={item.name} size="medium" className="item-detail__img" />
-      </div>
-
-      {item.locationImageUrl && !editMode && (
-        <>
-          <p className="hint">Lagerort-Foto</p>
-          <br/>
-          <div className="item-detail__image">
-            <AuthenticatedImage src={item.locationImageUrl} alt={`Lagerort von ${item.name}`} size="medium" className="item-detail__img" />
-          </div>
-        </>
-      )}
+      <PhotoGallery photos={itemPhotos(item)} />
 
       {!editMode && (
         <>
@@ -140,6 +133,13 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
               <dd>{item.sku}</dd>
             </div>
           </dl>
+          {item.expirationDate && (
+            <p className="item-detail__description">
+              Ablaufdatum: <strong>{formatExpiryDate(item.expirationDate)}</strong>{" "}
+              {expiryStatus(item.expirationDate) === "expired" && <span className="badge badge--warning">abgelaufen</span>}
+              {expiryStatus(item.expirationDate) === "soon" && <span className="badge badge--neutral">läuft bald ab</span>}
+            </p>
+          )}
           {item.description && <p className="item-detail__description">{item.description}</p>}
 
           <hr className="divider" />
@@ -296,6 +296,13 @@ export default function ItemDetailModal({ item, categories, onClose, onChanged }
               </button>
             </div>
           </div>
+
+          {editCategoryPerishable && (
+            <label className="field">
+              <span>Ablaufdatum (optional)</span>
+              <input type="date" value={editExpirationDate} onChange={(e) => setEditExpirationDate(e.target.value)} />
+            </label>
+          )}
 
           <label className="field">
             <span>Beschreibung</span>

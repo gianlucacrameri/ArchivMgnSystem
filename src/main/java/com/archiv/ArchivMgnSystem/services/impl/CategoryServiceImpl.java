@@ -1,6 +1,7 @@
 package com.archiv.ArchivMgnSystem.services.impl;
 
 
+import com.archiv.ArchivMgnSystem.config.PerishableCategories;
 import com.archiv.ArchivMgnSystem.dtos.CategoryDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.exceptions.NotFoundException;
@@ -39,6 +40,10 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Response createCategory(CategoryDTO categoryDTO) {
         Category categoryToSave = modelMapper.map(categoryDTO, Category.class);
+        // Ohne ausdrückliche Angabe entscheidet der Name (Essen, Getränke, ...).
+        if (categoryToSave.getPerishable() == null) {
+            categoryToSave.setPerishable(PerishableCategories.looksPerishable(categoryToSave.getName()));
+        }
         Category savedCategory = categoryRepository.save(categoryToSave);
         savedCategory.setItems(null);
         activityLog.record(ActivityLogService.CATEGORY, "Kategorie \"" + savedCategory.getName() + "\" angelegt");
@@ -84,6 +89,11 @@ public class CategoryServiceImpl implements CategoryService {
 
         String nameBefore = existingCategory.getName();
         existingCategory.setName(categoryDTO.getName());
+        if (categoryDTO.getPerishable() != null && !categoryDTO.getPerishable().equals(existingCategory.getPerishable())) {
+            existingCategory.setPerishable(categoryDTO.getPerishable());
+            activityLog.record(ActivityLogService.CATEGORY, "Kategorie \"" + categoryDTO.getName() + "\": Ablaufdatum "
+                    + (categoryDTO.getPerishable() ? "eingeschaltet" : "ausgeschaltet"));
+        }
         categoryRepository.save(existingCategory);
         if (!nameBefore.equals(categoryDTO.getName())) {
             activityLog.record(ActivityLogService.CATEGORY, "Kategorie \"" + nameBefore + "\" umbenannt in \"" + categoryDTO.getName() + "\"");

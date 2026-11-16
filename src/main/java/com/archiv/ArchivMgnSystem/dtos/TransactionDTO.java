@@ -12,6 +12,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -46,6 +47,9 @@ public class TransactionDTO {
     private String proposedDescription;
     private Long proposedCategoryId;
     private String proposedCategoryName;
+    private LocalDate proposedExpirationDate;
+    /** Ob die vorgeschlagene Kategorie ein Ablaufdatum zulässt (für die Anzeige). */
+    private Boolean proposedCategoryPerishable;
     private StockPrecision proposedStockPrecision;
     private LocalDateTime updatedAt;
     private LocalDateTime createdAt;

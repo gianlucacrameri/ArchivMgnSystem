@@ -68,9 +68,10 @@ public class TransactionController {
             @RequestParam("categoryId") Long categoryId,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
-            @RequestParam(value = "note", required = false) String note) {
+            @RequestParam(value = "note", required = false) String note,
+            @RequestParam(value = "expirationDate", required = false) String expirationDate) {
         return ResponseEntity.ok(transactionService.requestNewItem(
-                name, place, quantity, stockPrecision, categoryId, description, imageFile, note));
+                name, place, quantity, stockPrecision, categoryId, description, imageFile, note, expirationDate));
     }
 
     /** Mitglied schlägt vor, ein Material aus dem Archiv zu löschen; ein Admin entscheidet. */

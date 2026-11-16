@@ -9,6 +9,7 @@ import com.archiv.ArchivMgnSystem.models.Item;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.Collection;
 
 public interface ItemService {
@@ -29,7 +30,8 @@ public interface ItemService {
 
     /** Legt ein Material aus einem freigegebenen Antrag an; das Foto ist bereits gespeichert. */
     Item createFromProposal(String name, String place, int quantity, StockPrecision precision,
-                            Category category, String description, String imageUrl, String requestedBy);
+                            Category category, String description, String imageUrl, String requestedBy,
+                            LocalDate expirationDate);
 
     /** Löscht die Fotodateien (samt Vorschaubildern), sobald die laufende Transaktion erfolgreich war. */
     void deleteImagesAfterCommit(Collection<String> imageUrls);

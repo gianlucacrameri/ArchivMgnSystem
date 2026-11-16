@@ -21,7 +21,7 @@ public interface TransactionService {
     Response editTransaction(Long transactionId, TransactionEditRequest edit);
 
     Response requestNewItem(String name, String place, Integer quantity, StockPrecision precision, Long categoryId,
-                            String description, MultipartFile imageFile, String note);
+                            String description, MultipartFile imageFile, String note, String expirationDate);
 
     Response requestItemDeletion(Long itemId, String note);
 

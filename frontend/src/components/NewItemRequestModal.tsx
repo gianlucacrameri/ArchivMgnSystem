@@ -23,6 +23,8 @@ export default function NewItemRequestModal({ categories, onClose, onRequested }
   const [description, setDescription] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [note, setNote] = useState("");
+  const [expirationDate, setExpirationDate] = useState("");
+  const perishable = !!categories.find((c) => c.id === categoryId)?.perishable;
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -42,6 +44,7 @@ export default function NewItemRequestModal({ categories, onClose, onRequested }
         description: description.trim() || undefined,
         imageFile,
         note: note.trim() || undefined,
+        expirationDate: perishable && expirationDate ? expirationDate : undefined,
       });
       showSuccess("Antrag wurde eingereicht und wartet auf Freigabe durch einen Admin.");
       onRequested();
@@ -81,6 +84,12 @@ export default function NewItemRequestModal({ categories, onClose, onRequested }
             ))}
           </select>
         </label>
+        {perishable && (
+          <label className="field">
+            <span>Ablaufdatum (optional)</span>
+            <input type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} />
+          </label>
+        )}
         <label className="field">
           <span>Bestand</span>
           <NumberField value={quantity} onChange={setQuantity} min={0} required fallback={0} />

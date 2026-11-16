@@ -1,6 +1,7 @@
 package com.archiv.ArchivMgnSystem.services.impl;
 
 
+import com.archiv.ArchivMgnSystem.config.ExpirationDates;
 import com.archiv.ArchivMgnSystem.dtos.ItemDTO;
 import com.archiv.ArchivMgnSystem.dtos.Response;
 import com.archiv.ArchivMgnSystem.enums.ImageSize;
@@ -49,6 +50,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -109,6 +111,8 @@ public class ItemServiceImpl implements ItemService {
                 .place(itemDTO.getPlace())
                 .description(itemDTO.getDescription())
                 .category(category)
+                // Ein Ablaufdatum gibt es nur für Kategorien, deren Material verderben kann.
+                .expirationDate(Boolean.TRUE.equals(category.getPerishable()) ? itemDTO.getExpirationDate() : null)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -133,7 +137,8 @@ public class ItemServiceImpl implements ItemService {
         }
 
         activityLog.record(ActivityLogService.MATERIAL, "Material \"" + itemToSave.getName() + "\" (" + itemToSave.getSku()
-                + ") angelegt, Bestand " + itemToSave.getStockQuantity() + ", Lagerort " + itemToSave.getPlace());
+                + ") angelegt, Bestand " + itemToSave.getStockQuantity() + ", Lagerort " + itemToSave.getPlace()
+                + (itemToSave.getExpirationDate() != null ? ", Ablaufdatum " + ExpirationDates.format(itemToSave.getExpirationDate()) : ""));
 
         return Response.builder()
                 .message("Item successfully saved")
@@ -143,7 +148,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional
     public Item createFromProposal(String name, String place, int quantity, StockPrecision precision,
-                                   Category category, String description, String imageUrl, String requestedBy) {
+                                   Category category, String description, String imageUrl, String requestedBy,
+                                   LocalDate expirationDate) {
         Item item = Item.builder()
                 .name(name)
                 .place(place)
@@ -152,6 +158,8 @@ public class ItemServiceImpl implements ItemService {
                 .category(category)
                 .description(description)
                 .imageUrl(imageUrl)
+                .expirationDate(expirationDate != null && Boolean.TRUE.equals(category.getPerishable())
+                        ? expirationDate.atStartOfDay() : null)
                 .createdAt(LocalDateTime.now())
                 .build();
         item.setSku(String.format("ART-%05d", nextArticleNumber()));
@@ -264,6 +272,14 @@ public class ItemServiceImpl implements ItemService {
         if (itemDTO.getStockPrecision() != null && itemDTO.getStockPrecision() != existingItem.getStockPrecision()) {
             changes.add(itemDTO.getStockPrecision() == StockPrecision.EXACT ? "Bestand genau gezählt" : "Bestand ungefähr");
             existingItem.setStockPrecision(itemDTO.getStockPrecision());
+        }
+
+        boolean perishable = existingItem.getCategory() != null && Boolean.TRUE.equals(existingItem.getCategory().getPerishable());
+        LocalDateTime newExpiration = !perishable || itemDTO.isClearExpirationDate() ? null
+                : itemDTO.getExpirationDate() != null ? itemDTO.getExpirationDate() : existingItem.getExpirationDate();
+        if (!Objects.equals(newExpiration, existingItem.getExpirationDate())) {
+            changes.add(newExpiration == null ? "Ablaufdatum entfernt" : "Ablaufdatum → " + ExpirationDates.format(newExpiration));
+            existingItem.setExpirationDate(newExpiration);
         }
 
         return changes;

@@ -37,8 +37,10 @@ export async function requestNewItem(input: {
   description?: string;
   imageFile?: File | null;
   note?: string;
+  expirationDate?: string;
 }): Promise<void> {
   const form = new FormData();
+  if (input.expirationDate) form.set("expirationDate", input.expirationDate);
   form.set("name", input.name);
   if (input.place) form.set("place", input.place);
   form.set("quantity", String(input.quantity));
@@ -69,6 +71,8 @@ export async function editTransaction(
     categoryId?: number;
     stockPrecision?: StockPrecision;
     description?: string;
+    /** JJJJ-MM-TT; leerer Text entfernt das Datum. */
+    expirationDate?: string;
   }
 ): Promise<void> {
   await apiSend("PUT", `/api/transactions/${id}/edit`, changes);

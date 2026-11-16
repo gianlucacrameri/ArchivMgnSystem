@@ -22,6 +22,8 @@ export interface UserDTO {
 export interface CategoryDTO {
   id: number;
   name: string;
+  /** true = Material dieser Kategorie kann verderben und darf ein Ablaufdatum haben. */
+  perishable?: boolean;
 }
 
 export interface ItemDTO {
@@ -58,6 +60,8 @@ export interface TransactionDTO {
   proposedCategoryName?: string;
   proposedStockPrecision?: StockPrecision;
   proposedCategoryId?: number;
+  proposedExpirationDate?: string;
+  proposedCategoryPerishable?: boolean;
   /** Gesetzt, wenn ein Admin den Antrag vor der Entscheidung angepasst hat. */
   editedByName?: string;
   /** Wer den Antrag freigegeben oder abgelehnt hat. */

@@ -1,5 +1,7 @@
 package com.archiv.ArchivMgnSystem.config;
 
+import com.archiv.ArchivMgnSystem.models.Category;
+import com.archiv.ArchivMgnSystem.repositories.CategoryRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ import java.util.List;
 public class SchemaMigration implements ApplicationRunner {
 
     private final EntityManager entityManager;
+    private final CategoryRepository categoryRepository;
 
     @Override
     @Transactional
@@ -27,6 +30,13 @@ public class SchemaMigration implements ApplicationRunner {
         // Ältere Installationen haben die Antragsart als festen Aufzählungstyp
         // ('ADD','USE') angelegt - die neue Art "PHOTO" passt dort nicht hinein.
         widenEnumColumn("transactions", "transaction_type");
+        // Kategorien aus älteren Versionen: Startwert für "kann ablaufen" aus dem Namen ableiten.
+        for (Category category : categoryRepository.findAll()) {
+            if (category.getPerishable() == null) {
+                category.setPerishable(PerishableCategories.looksPerishable(category.getName()));
+                categoryRepository.save(category);
+            }
+        }
     }
 
     private void widenEnumColumn(String table, String column) {

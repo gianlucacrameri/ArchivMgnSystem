@@ -8,6 +8,7 @@ import { editTransaction, fetchTransaction } from "../api/transactions";
 import { ApiError } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { describeRequest, formatDateTime } from "../utils/describeRequest";
+import { formatExpiryDate, toDateInputValue } from "../utils/expiry";
 
 interface Props {
   /** Der Antrag aus der Liste; die vollständigen Angaben werden nachgeladen. */
@@ -47,6 +48,8 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
   const [editPrecision, setEditPrecision] = useState<StockPrecision>("EXACT");
   const [editDescription, setEditDescription] = useState("");
   const [editPhotoTarget, setEditPhotoTarget] = useState<PhotoTarget>("ITEM");
+  const [editExpirationDate, setEditExpirationDate] = useState("");
+  const editCategoryPerishable = !!categories.find((c) => c.id === editCategoryId)?.perishable;
 
   async function startEditing() {
     setEditQuantity(detail.totalItems);
@@ -56,6 +59,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
     setEditPrecision(detail.proposedStockPrecision ?? "EXACT");
     setEditDescription(detail.proposedDescription ?? "");
     setEditPhotoTarget(detail.photoTarget ?? "ITEM");
+    setEditExpirationDate(toDateInputValue(detail.proposedExpirationDate));
     if (detail.transactionType === "NEW") {
       try {
         setCategories(await fetchCategories());
@@ -82,6 +86,7 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
               categoryId: editCategoryId === "" ? undefined : editCategoryId,
               stockPrecision: editPrecision,
               description: editDescription.trim(),
+              expirationDate: editCategoryPerishable ? editExpirationDate : "",
             }
           : {}),
       });
@@ -200,6 +205,12 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
                 </label>
               </>
             )}
+            {isNew && editCategoryPerishable && (
+              <label className="field">
+                <span>Ablaufdatum (optional)</span>
+                <input type="date" value={editExpirationDate} onChange={(e) => setEditExpirationDate(e.target.value)} />
+              </label>
+            )}
             {(isNew || changesStock) && (
               <label className="field">
                 <span>{isNew ? "Bestand" : detail.transactionType === "ADD" ? "Menge (hinzufügen)" : "Menge (verbrauchen)"}</span>
@@ -307,6 +318,12 @@ export default function RequestDetailModal({ request, processing, onDecide, onEd
                 </dd>
               </div>
             </>
+          )}
+          {isNew && detail.proposedExpirationDate && (
+            <div>
+              <dt>Ablaufdatum</dt>
+              <dd>{formatExpiryDate(detail.proposedExpirationDate)}</dd>
+            </div>
           )}
           {isDelete && item && (
             <div>

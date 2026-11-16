@@ -1029,3 +1029,29 @@ textarea:focus {
 .modal-panel__close {
   flex-shrink: 0;
 }
+
+/* ---------- Häkchen mit Beschriftung ---------- */
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.check-field input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+
+.check-field--small {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.item-card__body .badge + .badge {
+  margin-top: 4px;
+}

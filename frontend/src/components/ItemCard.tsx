@@ -1,5 +1,6 @@
 import type { ItemDTO } from "../types";
 import AuthenticatedImage from "./AuthenticatedImage";
+import { expiryStatus, formatExpiryDate } from "../utils/expiry";
 
 interface Props {
   item: ItemDTO;
@@ -8,6 +9,7 @@ interface Props {
 
 export default function ItemCard({ item, onClick }: Props) {
   const lowStock = item.stockQuantity <= 0;
+  const expiry = item.expirationDate ? expiryStatus(item.expirationDate) : null;
 
   return (
     <button type="button" className="item-card" onClick={onClick}>
@@ -20,6 +22,12 @@ export default function ItemCard({ item, onClick }: Props) {
         <span className={`badge ${lowStock ? "badge--warning" : "badge--neutral"}`}>
           {item.stockQuantity} Stk. {lowStock ? "· nicht verfügbar" : "verfügbar"}
         </span>
+        {item.expirationDate && expiry === "expired" && (
+          <span className="badge badge--warning">abgelaufen am {formatExpiryDate(item.expirationDate)}</span>
+        )}
+        {item.expirationDate && expiry === "soon" && (
+          <span className="badge badge--neutral">läuft ab am {formatExpiryDate(item.expirationDate)}</span>
+        )}
       </div>
     </button>
   );
